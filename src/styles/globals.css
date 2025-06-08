@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@theme{
+  --color-verde: #96b422;
+  --color-azul:#305398;
+  --color-morado:#af4291;
+  --color-amarillo:#fbba25;
+  --color-naranja:#f39327;
+  --color-violeta:#7f5da4
+}
