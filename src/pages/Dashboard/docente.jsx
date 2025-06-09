@@ -1,52 +1,46 @@
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { createClient } from '../../../utils/supabase/client'
-
-import GestionRutas from '@components/dashboard/docente/gestionar-rutas'
+import { useState } from 'react'
+import Slidebar from '@components/dashboard/docente/slidebar'
+import Bienvenida from '@components/dashboard/bienvenida'
+import CrearRutaDrawer from '@components/dashboard/docente/crearRutaDrawer'
+import SubirClaseDrawer from '@components/dashboard/docente/subirClaseDrawer'
+import EliminarClaseDrawer from '@components/dashboard/docente/eliminarClaseDrawer'
+import EliminarRutaDrawer from '@components/dashboard/docente/eliminarRutas'
+import ListaClasesDocente from '@components/dashboard/docente/listaClaseDocente'
 
 export default function DocentePage() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const router = useRouter()
+  const [vista, setVista] = useState(null)
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const supabase = createClient(document.cookie)
+  const handleOpcion = (opcion) => setVista(opcion)
+  const cerrarDrawer = () => setVista(null)
 
-        const { data: { user } } = await supabase.auth.getUser()
+  const clasesMock = [
+    {
+      id: 1,
+      titulo: 'Saludos en inglés',
+      descripcion: 'Aprenderás a saludar formal e informalmente.',
+      rutaAsignada: 'Inglés A1',
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+    {
+      id: 2,
+      titulo: 'Verbos básicos',
+      descripcion: 'Uso de verbos comunes en presente simple.',
+      rutaAsignada: 'Inglés A1',
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+  ]
 
-        if (!user) {
-          router.push('/')
-        }
-
-        const { data: perfil } = await supabase
-          .from('perfiles')
-          .select('rol')
-          .eq('id', user.id)
-          .single()
-
-        if (perfil?.rol !== 'docente') {
-          router.push('/')
-        }
-
-        setLoading(false)
-      } catch (err) {
-        setError(err.message)
-        setLoading(false)
-      }
-    }
-
-    fetchUserData()
-  }, [router])
-
-  if (loading) return <div>Cargando...</div>
-  if (error) return <div>Error: {error}</div>
-
-  return(
-    <>
-    <GestionRutas/>
-    
-    </>
-  );
+  return (
+    <div className="flex">
+      <Slidebar onSelect={handleOpcion} />
+      <Bienvenida nombre="Anderson" />
+      <ListaClasesDocente clases={clasesMock} />
+      <CrearRutaDrawer visible={vista === 'crearRuta'} onClose={cerrarDrawer} />
+      <SubirClaseDrawer visible={vista === 'subirClase'} onClose={cerrarDrawer} />
+      <EliminarRutaDrawer visible={vista === 'eliminarRuta'} onClose={cerrarDrawer} />
+      <EliminarClaseDrawer visible={vista === 'eliminarClase'} onClose={cerrarDrawer} />
+    </div>
+  )
 }
+
+

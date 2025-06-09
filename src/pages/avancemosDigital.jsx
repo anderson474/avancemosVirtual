@@ -18,7 +18,7 @@ export default function Login() {
       return
     }
 
-    const res = await fetch('@/pages/api/auth/login', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -27,9 +27,10 @@ export default function Login() {
     })
 
     const data = await res.json()
-
+    console.log(data)
     if (res.status !== 200) {
       setError(data.error)
+      console.log(data.error)
       return
     }
 
@@ -74,7 +75,11 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {error && <p className="text-red-500">{error}</p>}
+            {error && (
+              <div className="bg-red-100 text-red-700 border border-red-400 p-2 rounded mb-4">
+                {error}
+              </div>
+            )}
             <button
               type="submit"
               className="bg-[rgba(45,168,54,1)] text-white py-2 rounded hover:bg-blue-600 transition cursor-pointer"
