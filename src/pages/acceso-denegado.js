@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { createClient } from '@utils/supabase/client' // Ajusta esta ruta a donde tengas tu cliente de Supabase para el frontend
+import Image from 'next/image'
+
 
 export default function AccesoDenegado() {
   const router = useRouter()
@@ -8,13 +10,19 @@ export default function AccesoDenegado() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/login') // Redirige al login después de cerrar sesión
+    router.push('/avancemosDigital') // Redirige al login después de cerrar sesión
   }
 
   return (
+
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-        
+        <Image
+        className='relative inset-0'
+        src="/logo.ico" 
+        width={100} 
+        height={100} 
+        alt="Logo" />
         {/* Ícono de "Stop" o "Prohibido" */}
         <div className="mx-auto flex items-center justify-center h-16 w-16 bg-red-100 rounded-full">
           <svg 
@@ -45,10 +53,8 @@ export default function AccesoDenegado() {
         </p>
         
         <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-          <Link href="/">
-            <a className="w-full sm:w-auto px-4 py-2 text-white bg-[rgba(45,168,54,1)] rounded-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-              Ir a la Página Principal
-            </a>
+          <Link href="/" className="w-full sm:w-auto px-4 py-2 ...">
+            Ir a la Página Principal
           </Link>
           <button
             onClick={handleLogout}
@@ -61,6 +67,7 @@ export default function AccesoDenegado() {
         <div className="pt-4 text-xs text-gray-400">
           <p>Si crees que esto es un error, por favor contacta al administrador del sistema.</p>
         </div>
+        
       </div>
     </div>
   )
