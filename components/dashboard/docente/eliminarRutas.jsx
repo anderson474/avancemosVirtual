@@ -1,11 +1,11 @@
-// src/components/dashboard/docente/eliminarClaseDrawer.jsx
+// src/components/dashboard/docente/eliminarRutas.jsx
 
 import { useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 // 1. IMPORTAMOS EL HOOK CORRECTO
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
-export default function EliminarClaseDrawer({ visible, onClose, clases, onClaseEliminada }) {
+export default function EliminarRutaDrawer({ visible, onClose, rutas, onRutaEliminada }) {
   // 2. OBTENEMOS EL CLIENTE COMPARTIDO DESDE EL CONTEXTO
   const supabase = useSupabaseClient();
   
@@ -13,47 +13,33 @@ export default function EliminarClaseDrawer({ visible, onClose, clases, onClaseE
   const [deletingId, setDeletingId] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
 
-  const handleEliminarClase = async (clase) => {
-    // Usamos el ID de la clase para saber cuál botón deshabilitar
-    setDeletingId(clase.id); 
+  const handleEliminarRuta = async (ruta) => {
+    // Usamos el ID de la ruta para saber cuál botón deshabilitar
+    setDeletingId(ruta.id); 
     setFeedback({ type: '', message: '' });
 
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar la clase "${clase.titulo}"? Esta acción no se puede deshacer.`)) {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar la ruta "${ruta.nombre}"? Todas las clases asociadas también serán eliminadas. Esta acción no se puede deshacer.`)) {
       setDeletingId(null);
       return;
     }
     
-    // 3. PRIMERO, BORRAMOS EL REGISTRO DE LA BASE DE DATOS
-    const { error: dbError } = await supabase
-      .from('clases')
+    // 3. AHORA USAMOS EL CLIENTE CORRECTO Y AUTENTICADO
+    // Supabase se encargará de borrar en cascada las clases asociadas
+    // gracias al 'ON DELETE CASCADE' que definimos en la tabla 'clases'.
+    const { error } = await supabase
+      .from('rutas')
       .delete()
-      .eq('id', clase.id);
+      .eq('id', ruta.id);
 
-    if (dbError) {
-      setFeedback({ type: 'error', message: 'Error al eliminar la clase: ' + dbError.message });
+    if (error) {
+      setFeedback({ type: 'error', message: 'Error al eliminar la ruta: ' + error.message });
       setDeletingId(null);
       return;
-    }
-
-    // 4. SI LA BD SE BORRÓ, BORRAMOS EL VIDEO DE STORAGE
-    if (clase.video_url) {
-      // Extraemos el path del archivo desde la URL completa
-      const filePath = clase.video_url.split('/videos-clases/')[1];
-      if (filePath) {
-        const { error: storageError } = await supabase.storage
-          .from('videos-clases')
-          .remove([filePath]);
-        
-        if (storageError) {
-          // Si falla el borrado del video, informamos pero la operación principal ya tuvo éxito
-          console.error("Error al eliminar el video de Storage, pero la clase fue borrada de la DB:", storageError.message);
-        }
-      }
     }
     
     // Si todo sale bien, actualizamos la UI
-    setFeedback({ type: 'success', message: `¡Clase "${clase.titulo}" eliminada!` });
-    onClaseEliminada(clase.id);
+    setFeedback({ type: 'success', message: `¡Ruta "${ruta.nombre}" eliminada con éxito!` });
+    onRutaEliminada(ruta.id);
     
     // Reseteamos el estado del botón después de un momento
     setTimeout(() => {
@@ -63,10 +49,10 @@ export default function EliminarClaseDrawer({ visible, onClose, clases, onClaseE
   };
 
   return (
-    <div className={`...`}> {/* Contenedor principal sin cambios */}
+    <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
       <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-xl font-semibold">Eliminar clase</h2>
-        <button onClick={onClose} className="...">
+        <h2 className="text-xl font-semibold">Eliminar ruta</h2>
+        <button onClick={onClose} className="p-1 rounded-full hover:text-red-600 hover:bg-red-100 transition-colors">
           <IoClose size={24} />
         </button>
       </div>
@@ -78,21 +64,24 @@ export default function EliminarClaseDrawer({ visible, onClose, clases, onClaseE
           </div>
         )}
 
-        {clases && clases.length > 0 ? (
-          clases.map((clase) => (
-            <div key={clase.id} className="flex justify-between items-center border-b pb-2">
-              <span className="truncate pr-4">{clase.titulo}</span>
+        {rutas && rutas.length > 0 ? (
+          rutas.map((ruta) => (
+            <div key={ruta.id} className="flex justify-between items-center border-b pb-2">
+              <div>
+                <p className="font-semibold">{ruta.nombre}</p>
+                <p className="text-sm text-gray-500">{ruta.nivel} - {ruta.idioma}</p>
+              </div>
               <button
-                onClick={() => handleEliminarClase(clase)}
-                disabled={deletingId === clase.id} // Deshabilitamos solo el botón que se está procesando
+                onClick={() => handleEliminarRuta(ruta)}
+                disabled={deletingId === ruta.id}
                 className="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 flex-shrink-0 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {deletingId === clase.id ? 'Eliminando...' : 'Eliminar'}
+                {deletingId === ruta.id ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-500 mt-8">No hay clases para eliminar.</p>
+          <p className="text-center text-gray-500 mt-8">No hay rutas para eliminar.</p>
         )}
       </div>
     </div>

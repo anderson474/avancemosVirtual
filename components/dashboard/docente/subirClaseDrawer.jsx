@@ -1,7 +1,7 @@
 // src/components/dashboard/docente/SubirClaseDrawer.jsx
 
 import { useState } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react'; // Asegúrate que la ruta a tu cliente sea correcta
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { IoClose } from 'react-icons/io5';
 
 export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, onClaseCreada }) {
@@ -9,12 +9,14 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [rutaId, setRutaId] = useState('');
-  const [videoFile, setVideoFile] = useState(null); // Estado para el archivo de video
-  const [isUploading, setIsUploading] = useState(false); // Estado para feedback de carga
+  const [videoFile, setVideoFile] = useState(null);
+  
+  // --- ESTADOS PARA LA EXPERIENCIA DE USUARIO (UX) ---
+  const [isUploading, setIsUploading] = useState(false);
+  const [feedback, setFeedback] = useState({ type: '', message: '' });
 
   const supabase = useSupabaseClient();
   const user = useUser();
-
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -25,61 +27,77 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rutaId || !videoFile) {
-      alert('Por favor, completa todos los campos y selecciona un video.');
-      return;
+        setFeedback({ type: 'error', message: 'Por favor, completa todos los campos y selecciona un video.' });
+        return;
     }
 
     setIsUploading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    // 3. LA VERIFICACIÓN DEL USUARIO AHORA ES SÍNCRONA Y MÁS LIMPIA
+    setFeedback({ type: '', message: '' });
+
     if (!user) {
       setIsUploading(false);
       setFeedback({ type: 'error', message: 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.' });
       return;
     }
     
-    // 1. Subir el video a Supabase Storage
+    // PASO 1: SUBIR EL VIDEO A SUPABASE STORAGE
     const fileExt = videoFile.name.split('.').pop();
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `public/${fileName}`;
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `docente-videos/${user.id}/${fileName}`; 
 
     const { error: uploadError } = await supabase.storage
-      .from('videos-clases') // El nombre de tu bucket
+      .from('videos-clases')
       .upload(filePath, videoFile);
 
     if (uploadError) {
       setIsUploading(false);
-      alert('Error al subir el video: ' + uploadError.message);
+      setFeedback({ type: 'error', message: 'Error al subir el video: ' + uploadError.message });
       return;
     }
 
-    // 2. Obtener la URL pública del video subido
+    // PASO 2: OBTENER LA URL PÚBLICA (asumiendo bucket público)
     const { data: { publicUrl } } = supabase.storage
       .from('videos-clases')
       .getPublicUrl(filePath);
 
-    // 3. Guardar la información de la clase en la base de datos
+    // PASO 3: GUARDAR LA INFORMACIÓN EN LA BASE DE DATOS
     const { data: nuevaClase, error: insertError } = await supabase
       .from('clases')
-      .insert({ titulo, descripcion, video_url: publicUrl, ruta_id: rutaId })
-      .select('*, rutas(nombre)') // Pedimos el nombre de la ruta para actualizar la UI correctamente
+      .insert({ 
+        titulo, 
+        descripcion, 
+        video_url: publicUrl,
+        ruta_id: rutaId 
+      })
+      .select('*, rutas(nombre)')
       .single();
 
-    setIsUploading(false);
-
     if (insertError) {
-      alert('Error al guardar la clase: ' + insertError.message);
-    } else {
-      onClaseCreada(nuevaClase);
-      onClose();
-      // Limpiar el formulario para la próxima vez
-      setTitulo('');
-      setDescripcion('');
-      setRutaId('');
-      setVideoFile(null);
-      // Es buena práctica resetear también el input del DOM
-      e.target.reset(); 
+      setIsUploading(false);
+      setFeedback({ type: 'error', message: 'Error al guardar la clase: ' + insertError.message });
+      // Limpieza: si falla el guardado en la DB, borramos el video que acabamos de subir
+      await supabase.storage.from('videos-clases').remove([filePath]);
+      return;
     }
+
+    // PASO 4: ÉXITO TOTAL
+    setIsUploading(false);
+    setFeedback({ type: 'success', message: '¡Clase subida y guardada con éxito!' });
+    
+    onClaseCreada(nuevaClase); // Actualizamos la UI en la página principal
+
+    // Limpiamos el formulario
+    setTitulo('');
+    setDescripcion('');
+    setRutaId('');
+    setVideoFile(null);
+    e.target.reset();
+
+    // Cerramos el drawer después de un momento
+    setTimeout(() => {
+      onClose();
+      setFeedback({ type: '', message: '' });
+    }, 2500);
   };
 
   return (
@@ -146,6 +164,13 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
             required
           />
         </div>
+        
+        {/* Componente de Feedback Visual */}
+        {feedback.message && (
+          <div className={`p-3 rounded-md text-sm text-center ${feedback.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {feedback.message}
+          </div>
+        )}
 
         <div className="pt-4">
             <button
@@ -153,7 +178,7 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
             disabled={isUploading}
             className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-md font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
             >
-            {isUploading ? 'Subiendo video...' : 'Subir Clase'}
+            {isUploading ? 'Subiendo...' : 'Subir Clase'}
             </button>
         </div>
       </form>

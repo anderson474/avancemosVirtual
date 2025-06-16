@@ -28,13 +28,17 @@ export default function EliminarClaseDrawer({ visible, onClose, clases, onClaseE
   };
 
   return (
-    <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-xl font-semibold">Eliminar clase</h2>
-        <button onClick={onClose} className="p-1 rounded-full hover:text-red-600 hover:bg-red-100 transition-colors">
-          <IoClose size={24} />
-        </button>
-      </div>
+    <div
+      className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+        visible ? 'translate-x-0' : 'translate-x-full'
+      }`}
+    >
+      
+      <h2 className="text-xl font-semibold">Eliminar Clases</h2>
+      <button onClick={onClose} className="p-1 rounded-full hover:text-red-600 hover:bg-red-100 transition-colors">
+        <IoClose size={24} />
+      </button>
+      
 
       <div className="p-4 space-y-4">
         {clases && clases.length > 0 ? (
