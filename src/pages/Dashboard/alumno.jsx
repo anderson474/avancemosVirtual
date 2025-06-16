@@ -48,7 +48,7 @@ export default function AlumnoPage() {
             progreso,
             rutas (
               id,
-              titulo,
+              nombre,
               descripcion
             )
           `)
@@ -60,7 +60,7 @@ export default function AlumnoPage() {
           // Transformamos los datos para que coincidan con la estructura que espera el componente Card
           const formattedRutas = rutas.map(item => ({
             id: item.rutas.id,
-            titulo: item.rutas.titulo,
+            titulo: item.rutas.nombre,
             descripcion: item.rutas.descripcion,
             progreso: item.progreso,
           }));
