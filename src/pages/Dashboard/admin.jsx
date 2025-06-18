@@ -87,15 +87,26 @@ export default function AdminPage({ initialUsers, initialRutas }) {
   };
 
   const handleDeleteUser = async (user) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${user.nombre}? Esta acción no se puede deshacer.`)) {
-      // Para eliminar un usuario de Supabase Auth, se necesita una función Edge.
-      // Por ahora, eliminaremos su perfil, lo que gracias a ON DELETE CASCADE borrará sus asignaciones.
-      const { error } = await supabase.from('perfiles').delete().eq('id', user.id);
-      if (error) {
-        alert(`Error al eliminar el perfil: ${error.message}`);
-      } else {
-        alert(`${user.nombre} ha sido eliminado.`);
+    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${user.nombre}? Esta acción es IRREVERSIBLE y borrará todos sus datos.`)) {
+      try {
+        // Obtenemos el cliente de Supabase del contexto
+        const { data, error } = await supabase.functions.invoke('delete-user', {
+          method: 'POST',
+          body: { user_id: user.id }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Respuesta de la función:', data);
+        alert(`${user.nombre} ha sido eliminado permanentemente.`);
+        // Actualizar la UI eliminando al usuario de la lista local
         setUsers(users.filter(u => u.id !== user.id));
+
+      } catch (error) {
+        console.error("Error al llamar a la función delete-user:", error);
+        alert(`Error al eliminar el usuario: ${error.message}`);
       }
     }
   };
