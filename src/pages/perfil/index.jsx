@@ -1,11 +1,11 @@
 // src/pages/perfil/index.jsx
 
 import ProfileForm from '@components/dashboard/alumno/profileForm';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react'; // Importante para getServerSideProps
+// IMPORTANTE: Esta es la función correcta para el servidor
+import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 
+// El componente de la página se queda igual
 export default function PerfilPage() {
-  // El componente se renderiza en el cliente.
-  // La protección de la ruta se hace abajo en getServerSideProps.
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <ProfileForm />
@@ -13,28 +13,26 @@ export default function PerfilPage() {
   );
 }
 
-// Esta función se ejecuta en el servidor ANTES de que la página se renderice.
-// Es la forma ideal de proteger rutas en el Pages Router.
+// ESTA ES LA FUNCIÓN QUE CORREGIMOS
 export const getServerSideProps = async (ctx) => {
-  // Crear un cliente de Supabase para el lado del servidor
-  const supabase = useSupabaseClient(); 
-  // Opcional pero muy útil: obtenemos el usuario directamente con este hook
-  const user = useUser(); 
+  // 1. Crear un cliente de Supabase para el SERVIDOR
+  const supabase = createPagesServerClient(ctx);
   
-  
+  // 2. Obtener la sesión del usuario DESDE EL SERVIDOR
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // Si no hay sesión, redirigir al usuario a la página de login
-  if (!user) {
+  // 3. Si no hay sesión, redirigir
+  if (!session) {
     return {
       redirect: {
-        destination: '/avancemosDigital', // o la ruta que uses para iniciar sesión
+        destination: '/login', // o tu ruta de login
         permanent: false,
       },
     };
   }
 
-  // Si hay sesión, permite que la página se renderice
-  // y pasa los datos del usuario como props si lo necesitas
+  // 4. Si hay sesión, permitir que la página se renderice
+  // Pasamos 'initialSession' como prop para que el contexto del lado del cliente se cargue más rápido
   return {
     props: {
       initialSession: session,
