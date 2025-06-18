@@ -20,44 +20,34 @@ export default function AlumnoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Solo ejecutamos la carga de datos si tenemos un usuario
     if (user) {
       const fetchAlumnoData = async () => {
         setIsLoading(true);
 
-        // 1. Obtener el perfil del alumno (para el nombre)
+        // 1. Obtener el perfil del alumno (nombre y avatar)
         const { data: perfil, error: perfilError } = await supabase
           .from('perfiles')
-          .select('nombre,username, avatar_url')
+          .select('nombre, username, avatar_url')
           .eq('id', user.id)
           .single();
 
-        if (perfilError) {
-          console.error('Error fetching perfil:', perfilError);
-          // Si no hay perfil, usamos el email como fallback
-          setNombreAlumno(user.email);
-        } else {
+        if (perfil) {
           setNombreAlumno(perfil.username || perfil.nombre);
-
-          // --- LÓGICA PARA CONSTRUIR LA URL DEL AVATAR ---
           if (perfil.avatar_url) {
-            const { data: publicURLData } = supabase.storage
-              .from('avatars')
-              .getPublicUrl(perfil.avatar_url);
+            const { data: publicURLData } = supabase.storage.from('avatars').getPublicUrl(perfil.avatar_url);
             setAvatarUrl(publicURLData.publicUrl);
           } else {
-            // Si no hay avatar, usamos la imagen por defecto
-            setAvatarUrl('/default-avatar.png'); // Asegúrate que este archivo exista en /public
+            setAvatarUrl('/default-avatar.png');
           }
+        } else {
+          console.error('Error fetching perfil:', perfilError);
+          setNombreAlumno(user.email);
         }
 
-        // 2. Obtener las rutas asignadas al alumno
-        // Hacemos un JOIN implícito para obtener datos de la tabla 'rutas'
-        // y el 'progreso' de la tabla 'rutas_alumnos'
-        const { data: rutas, error: rutasError } = await supabase
+        // 2. Obtener las rutas asignadas al alumno (sin el campo 'progreso')
+        const { data: rutasData, error: rutasError } = await supabase
           .from('rutas_alumnos')
           .select(`
-            progreso,
             rutas (
               id,
               nombre,
@@ -68,14 +58,38 @@ export default function AlumnoPage() {
 
         if (rutasError) {
           console.error('Error fetching rutas asignadas:', rutasError);
+          setRutasAsignadas([]);
         } else {
-          // Transformamos los datos para que coincidan con la estructura que espera el componente Card
-          const formattedRutas = rutas.map(item => ({
-            id: item.rutas.id,
-            titulo: item.rutas.nombre,
-            descripcion: item.rutas.descripcion,
-            progreso: item.progreso,
-          }));
+          // Extraemos solo la información de las rutas
+          const rutas = rutasData.map(item => item.rutas);
+          
+          // 3. Calcular el progreso para CADA ruta usando nuestra función de BD
+          // Usamos Promise.all para hacer todas las llamadas en paralelo, ¡es muy eficiente!
+          const progressPromises = rutas.map(ruta => 
+            supabase.rpc('calcular_progreso_ruta', {
+              p_alumno_id: user.id,
+              p_ruta_id: ruta.id
+            })
+          );
+
+          const progressResults = await Promise.all(progressPromises);
+
+          // 4. Combinar los datos de las rutas con su progreso calculado
+          const formattedRutas = rutas.map((ruta, index) => {
+            const progressData = progressResults[index];
+            if (progressData.error) {
+              console.error(`Error al calcular progreso para la ruta ${ruta.id}:`, progressData.error);
+            }
+            return {
+              id: ruta.id,
+              titulo: ruta.nombre,
+              descripcion: ruta.descripcion,
+              // Usamos el progreso calculado o 0 si hubo un error.
+              // Math.round para redondear a un número entero.
+              progreso: progressData.data ? Math.round(progressData.data) : 0,
+            };
+          });
+          
           setRutasAsignadas(formattedRutas);
         }
 
@@ -84,7 +98,8 @@ export default function AlumnoPage() {
 
       fetchAlumnoData();
     }
-  }, [user, supabase]); // El efecto se re-ejecuta si el usuario o supabase cambian
+  }, [user, supabase]);
+
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

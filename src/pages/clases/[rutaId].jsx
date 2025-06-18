@@ -135,7 +135,11 @@ export default function InterfazClasePage() {
             <div className="max-w-5xl mx-auto">
               {/* Contenedor del video con aspect-ratio para tamaño consistente */}
               <div className="w-full aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-xl mb-8">
-                <VideoPlayer videoUrl={claseActiva.video_url} />
+                <VideoPlayer 
+                  videoUrl={claseActiva.video_url}
+                  claseId={claseActiva.id} // <-- AÑADE ESTA PROP
+                  userId={user.id}          // <-- AÑADE ESTA PROP
+                />
               </div>
               
               {/* Pestañas de información (descripción, recursos, comentarios) */}
