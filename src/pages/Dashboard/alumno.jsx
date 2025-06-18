@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 // Importa los componentes
 import SlidebarAlumno from '@components/dashboard/alumno/slidebarAlumno';
 import RutaAprendizajeCard from '@components/dashboard/alumno/rutaAprendizajeCard';
+import Header from '@components/dashboard/alumno/header';
 
 export default function AlumnoPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function AlumnoPage() {
 
   // --- ESTADOS PARA MANEJAR DATOS REALES ---
   const [nombreAlumno, setNombreAlumno] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(''); 
   const [rutasAsignadas, setRutasAsignadas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,16 +28,27 @@ export default function AlumnoPage() {
         // 1. Obtener el perfil del alumno (para el nombre)
         const { data: perfil, error: perfilError } = await supabase
           .from('perfiles')
-          .select('nombre,username')
+          .select('nombre,username, avatar_url')
           .eq('id', user.id)
           .single();
 
         if (perfilError) {
           console.error('Error fetching perfil:', perfilError);
           // Si no hay perfil, usamos el email como fallback
-          setNombreAlumno(user.nombre);
+          setNombreAlumno(user.email);
         } else {
-          setNombreAlumno(perfil.username);
+          setNombreAlumno(perfil.username || perfil.nombre);
+
+          // --- LÓGICA PARA CONSTRUIR LA URL DEL AVATAR ---
+          if (perfil.avatar_url) {
+            const { data: publicURLData } = supabase.storage
+              .from('avatars')
+              .getPublicUrl(perfil.avatar_url);
+            setAvatarUrl(publicURLData.publicUrl);
+          } else {
+            // Si no hay avatar, usamos la imagen por defecto
+            setAvatarUrl('/default-avatar.png'); // Asegúrate que este archivo exista en /public
+          }
         }
 
         // 2. Obtener las rutas asignadas al alumno
@@ -92,6 +105,16 @@ export default function AlumnoPage() {
       {/* Usamos el nombre del alumno cargado desde la base de datos */}
       <SlidebarAlumno nombreUsuario={nombreAlumno} onLogout={handleLogout} />
       
+
+      {/* 2. Contenedor principal para el Header y el Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* 2a. El nuevo Header en la parte superior */}
+        <Header 
+          nombreUsuario={nombreAlumno} 
+          avatarUrl={avatarUrl}
+          onLogout={handleLogout}
+        />
+      
       <main className="flex-1 p-8">
         
 
@@ -113,6 +136,7 @@ export default function AlumnoPage() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }
