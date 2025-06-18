@@ -6,7 +6,7 @@ export default function SlidebarAlumno({ nombreUsuario, onLogout }) {
   return (
     <aside className="w-64 bg-white shadow-xl flex flex-col h-screen">
       <div className="p-6 text-center">
-        <Image src="/logo.ico" width={100} height={50} alt="Logo de la Empresa" className="mx-auto" />
+        <Image src="/logo.ico" width={150} height={80} alt="Logo de la Empresa" className="mx-auto" />
       </div>
       
       <nav className="flex-grow p-4">
@@ -31,7 +31,7 @@ export default function SlidebarAlumno({ nombreUsuario, onLogout }) {
         <p className="text-center font-bold text-gray-800">{nombreUsuario}</p>
         <button
           onClick={onLogout}
-          className="w-full mt-4 px-4 py-2 text-sm text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+          className="w-full mt-4 px-4 py-2 text-sm text-black bg-red-300 rounded-lg hover:bg-red-900 hover:text-white cursor-pointer transition-colors"
         >
           Cerrar Sesión
         </button>

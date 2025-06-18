@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 // Importa los componentes
 import SlidebarAlumno from '@components/dashboard/alumno/slidebarAlumno';
 import RutaAprendizajeCard from '@components/dashboard/alumno/rutaAprendizajeCard';
-import Bienvenida from '@components/dashboard/bienvenida';
 
 export default function AlumnoPage() {
   const router = useRouter();
@@ -27,16 +26,16 @@ export default function AlumnoPage() {
         // 1. Obtener el perfil del alumno (para el nombre)
         const { data: perfil, error: perfilError } = await supabase
           .from('perfiles')
-          .select('nombre')
+          .select('nombre,username')
           .eq('id', user.id)
           .single();
 
         if (perfilError) {
           console.error('Error fetching perfil:', perfilError);
           // Si no hay perfil, usamos el email como fallback
-          setNombreAlumno(user.email);
+          setNombreAlumno(user.nombre);
         } else {
-          setNombreAlumno(perfil.nombre);
+          setNombreAlumno(perfil.username);
         }
 
         // 2. Obtener las rutas asignadas al alumno
@@ -94,7 +93,7 @@ export default function AlumnoPage() {
       <SlidebarAlumno nombreUsuario={nombreAlumno} onLogout={handleLogout} />
       
       <main className="flex-1 p-8">
-        <Bienvenida nombre={nombreAlumno} />
+        
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Mis Rutas de Aprendizaje</h2>
