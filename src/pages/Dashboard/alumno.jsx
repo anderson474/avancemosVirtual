@@ -37,7 +37,7 @@ export default function AlumnoPage() {
             const { data: publicURLData } = supabase.storage.from('avatars').getPublicUrl(perfil.avatar_url);
             setAvatarUrl(publicURLData.publicUrl);
           } else {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/default-avatar.jpg');
           }
         } else {
           console.error('Error fetching perfil:', perfilError);
