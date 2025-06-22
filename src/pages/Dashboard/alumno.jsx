@@ -48,6 +48,7 @@ export default function AlumnoPage() {
         const { data: rutasData, error: rutasError } = await supabase
           .from('rutas_alumnos')
           .select(`
+            ultima_clase_vista_id,
             rutas (
               id,
               nombre,
@@ -87,6 +88,7 @@ export default function AlumnoPage() {
               // Usamos el progreso calculado o 0 si hubo un error.
               // Math.round para redondear a un número entero.
               progreso: progressData.data ? Math.round(progressData.data) : 0,
+              ultimaClaseId: ruta.ultima_clase_vista_id,
             };
           });
           

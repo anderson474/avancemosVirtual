@@ -32,13 +32,13 @@ export default function UserTable({ users, onEdit, onDelete }) {
               <td className="px-5 py-4 border-b border-gray-200 text-sm text-center">
                 <button 
                   onClick={() => onEdit(user)}
-                  className="text-indigo-600 hover:text-indigo-900 mr-4 font-medium"
+                  className="text-indigo-600 hover:text-indigo-900 mr-4 font-medium cursor-pointer"
                 >
                   Editar
                 </button>
                 <button 
                   onClick={() => onDelete(user)}
-                  className="text-red-600 hover:text-red-900 font-medium"
+                  className="text-red-600 hover:text-red-900 font-medium cursor-pointer"
                 >
                   Eliminar
                 </button>

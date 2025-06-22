@@ -8,6 +8,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import SlidebarAdmin from '@components/dashboard/admin/slidebarAdmin';
 import UserTable from '@components/dashboard/admin/userTable';
 import UserEditModal from '@components/dashboard/admin/userEditModal';
+import UserCreateModal from '@components/dashboard/admin/userCreateModal';
 
 export default function AdminPage({ initialUsers, initialRutas }) {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function AdminPage({ initialUsers, initialRutas }) {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -110,6 +112,33 @@ export default function AdminPage({ initialUsers, initialRutas }) {
       }
     }
   };
+  // NUEVA FUNCIÓN para manejar la creación de usuarios
+  const handleCreateUser = async (formData) => {
+    try {
+      const { email, password, ...profileData } = formData;
+      
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        method: 'POST',
+        body: { email, password, profileData }
+      });
+
+      if (error) throw error;
+      
+      // Añadimos el nuevo usuario a la lista local para actualizar la UI sin recargar
+      const newUserForTable = {
+        id: data.user.id,
+        nombre: data.profile.nombre,
+        rol: data.profile.rol,
+      };
+      setUsers(prevUsers => [...prevUsers, newUserForTable]);
+
+      alert('¡Usuario creado con éxito!');
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error("Error al crear el usuario:", error);
+      alert(`Error: ${error.message}`);
+    }
+  };
 
   return (
     <div className="flex bg-gray-100 min-h-screen">
@@ -121,6 +150,12 @@ export default function AdminPage({ initialUsers, initialRutas }) {
         <div className="mt-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-gray-700">Gestión de Usuarios</h2>
+            <button 
+              onClick={() => setIsCreateModalOpen(true)} 
+              className="px-4 py-2 bg-verde text-white rounded-lg hover:bg-green-700 cursor-pointer"
+            >
+              + Crear Nuevo Usuario
+            </button>
             {/* El botón de crear nuevo usuario se puede habilitar después */}
             {/* <button onClick={() => handleOpenModal()} className="...">+ Crear Nuevo Perfil</button> */}
           </div>
@@ -138,6 +173,12 @@ export default function AdminPage({ initialUsers, initialRutas }) {
           onSave={handleSaveUser}
         />
       )}
+      {/* NUEVO Modal de Creación */}
+      <UserCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleCreateUser}
+      />
     </div>
   );
 }
@@ -156,8 +197,8 @@ export async function getServerSideProps(ctx) {
 
   // 1. Obtener todos los perfiles de usuarios
   const { data: users, error: usersError } = await supabase
-    .from('perfiles')
-    .select('id, nombre, rol');
+    .from('usuarios_completos') // <-- CONSULTAMOS A LA VISTA
+    .select('id, email, nombre, rol');
 
   // 2. Obtener todas las rutas de aprendizaje disponibles
   const { data: rutas, error: rutasError } = await supabase

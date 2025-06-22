@@ -1,9 +1,18 @@
 // components/dashboard/alumno/RutaAprendizajeCard.jsx
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 export default function RutaAprendizajeCard({ ruta }) {
   // `ruta` es un objeto con la info que pasaremos, como:
   // { id: 1, titulo: 'Inglés para Principiantes', progreso: 30, descripcion: '...' }
+  const router = useRouter();
+
+  const handleContinue = () => {
+    // Si hay una última clase vista, vamos directamente a ella.
+    // Si no, vamos a la primera clase de la ruta (necesitaríamos obtenerla o simplemente ir a la ruta).
+    // Por simplicidad, aquí vamos a la página de la ruta y ella se encargará de mostrar la primera o la última.
+    router.push(`/clases/${ruta.id}`);
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow duration-300 ease-in-out">

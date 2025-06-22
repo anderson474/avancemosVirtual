@@ -22,6 +22,32 @@ export default function InterfazClasePage() {
   const [claseActiva, setClaseActiva] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [clasesVistasIds, setClasesVistasIds] = useState([]);
+
+const handleNextClase = () => {
+  const currentIndex = clases.findIndex(c => c.id === claseActiva.id);
+  if (currentIndex !== -1 && currentIndex < clases.length - 1) {
+    const siguienteClase = clases[currentIndex + 1];
+    handleSelectClase(siguienteClase); // Reutilizamos la función que ya guarda el progreso
+  } else {
+    // Opcional: Mostrar un mensaje de "¡Has completado la ruta!"
+    alert('¡Felicidades, has terminado todas las clases de esta ruta!');
+    router.push('/Dashboard/alumno');
+  }
+};
+
+  const handleSelectClase = async (clase) => {
+  setClaseActiva(clase);
+  
+  // Si tenemos un usuario, guardamos esta clase como la última vista para esta ruta
+  if (user && rutaId && clase) {
+    await supabase
+      .from('rutas_alumnos')
+      .update({ ultima_clase_vista_id: clase.id })
+      .eq('alumno_id', user.id)
+      .eq('ruta_id', rutaId);
+  }
+};
 
   useEffect(() => {
     // Si no hay rutaId o usuario, no hacer nada.
@@ -31,6 +57,14 @@ export default function InterfazClasePage() {
       setIsLoading(true);
       setError(null);
 
+      const { data: vistasData } = await supabase
+        .from('clases_vistas')
+        .select('clase_id')
+        .eq('alumno_id', user.id);
+        
+      if (vistasData) {
+        setClasesVistasIds(vistasData.map(v => v.clase_id));
+      }
       // 1. Obtener la información de la ruta y todas sus clases asociadas.
       // La seguridad se maneja con Políticas de Seguridad (RLS) en Supabase.
       const { data, error: fetchError } = await supabase
@@ -102,7 +136,8 @@ export default function InterfazClasePage() {
         rutaTitulo={rutaInfo?.titulo}
         clases={clases}
         claseActivaId={claseActiva?.id}
-        onSelectClase={setClaseActiva}
+        onSelectClase={handleSelectClase}
+        clasesVistasIds={clasesVistasIds}
       />
       
       {/* 2. Contenedor principal (Header + Main) que ocupa el resto del espacio */}
@@ -126,6 +161,11 @@ export default function InterfazClasePage() {
           
           {/* Espacio reservado a la derecha para futuras acciones (ej. botón de completar clase) */}
           <div className="w-40"></div>
+          <div className="flex justify-end">
+              <button onClick={handleNextClase} className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
+                Siguiente Clase →
+              </button>
+          </div>
         </header>
 
         {/* 2b. Área de contenido principal con su propio scroll */}
@@ -137,8 +177,9 @@ export default function InterfazClasePage() {
               <div className="w-full aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-xl mb-8">
                 <VideoPlayer 
                   videoUrl={claseActiva.video_url}
-                  claseId={claseActiva.id} // <-- AÑADE ESTA PROP
-                  userId={user.id}          // <-- AÑADE ESTA PROP
+                  claseId={claseActiva.id} 
+                  userId={user.id}
+                  onVideoEnded={handleNextClase}          
                 />
               </div>
               
@@ -169,7 +210,7 @@ export const getServerSideProps = async (ctx) => {
   if (!session) {
     return {
       redirect: {
-        destination: '/login', // Asegúrate que esta es tu página de login
+        destination: '/avancemosDigital', // Asegúrate que esta es tu página de login
         permanent: false,
       },
     };
