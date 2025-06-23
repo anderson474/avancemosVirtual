@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "openai": "https://deno.land/x/openai/mod.ts"
+  }
+}

@@ -32,7 +32,7 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
     }
 
     setIsUploading(true);
-    setFeedback({ type: '', message: '' });
+    setFeedback({ type: 'info', message: 'Iniciando proceso de subida...' });
 
     if (!user) {
       setIsUploading(false);
@@ -40,64 +40,84 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
       return;
     }
     
-    // PASO 1: SUBIR EL VIDEO A SUPABASE STORAGE
-    const fileExt = videoFile.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `docente-videos/${user.id}/${fileName}`; 
+    let nuevaClaseId = null;
 
-    const { error: uploadError } = await supabase.storage
-      .from('videos-clases')
-      .upload(filePath, videoFile);
+    try {
+      // PASO 1: CREAR EL REGISTRO DE LA CLASE PRIMERO PARA OBTENER EL ID
+      setFeedback({ type: 'info', message: 'Creando registro de la clase...' });
+      const { data: claseCreada, error: insertError } = await supabase
+        .from('clases')
+        .insert({ 
+          titulo, 
+          descripcion, 
+          ruta_id: rutaId,
+          // Dejamos video_url nulo por ahora
+        })
+        .select('id')
+        .single();
+      
+      if (insertError) throw insertError;
+      
+      nuevaClaseId = claseCreada.id;
 
-    if (uploadError) {
+      // PASO 2: CONSTRUIR LA RUTA DEL VIDEO CON EL ID DE LA CLASE
+      const fileExt = videoFile.name.split('.').pop();
+      const fileName = `video.${fileExt}`; // Nombre estandarizado
+      // La ruta ahora incluye el ID de la clase, que es lo que la Edge Function necesita
+      const filePath = `docente-videos/${nuevaClaseId}/${fileName}`;
+
+      // PASO 3: SUBIR EL VIDEO A SUPABASE STORAGE
+      setFeedback({ type: 'info', message: `Subiendo video (ID de clase: ${nuevaClaseId})...` });
+      const { error: uploadError } = await supabase.storage
+        .from('videos-clases') // Asegúrate que el bucket se llame así
+        .upload(filePath, videoFile);
+
+      if (uploadError) throw uploadError;
+
+      // PASO 4: OBTENER LA URL PÚBLICA Y ACTUALIZAR EL REGISTRO DE LA CLASE
+      setFeedback({ type: 'info', message: 'Finalizando y guardando URL...' });
+      const { data: { publicUrl } } = supabase.storage
+        .from('videos-clases')
+        .getPublicUrl(filePath);
+      
+      const { data: claseActualizada, error: updateError } = await supabase
+        .from('clases')
+        .update({ video_url: publicUrl })
+        .eq('id', nuevaClaseId)
+        .select('*, rutas(nombre)')
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      // PASO 5: ÉXITO TOTAL
       setIsUploading(false);
-      setFeedback({ type: 'error', message: 'Error al subir el video: ' + uploadError.message });
-      return;
-    }
+      setFeedback({ type: 'success', message: '¡Clase subida con éxito! El procesamiento del video ha comenzado.' });
+      
+      onClaseCreada(claseActualizada);
 
-    // PASO 2: OBTENER LA URL PÚBLICA (asumiendo bucket público)
-    const { data: { publicUrl } } = supabase.storage
-      .from('videos-clases')
-      .getPublicUrl(filePath);
+      // Limpiamos el formulario
+      setTitulo('');
+      setDescripcion('');
+      setRutaId('');
+      setVideoFile(null);
+      document.getElementById('subir-clase-form').reset();
 
-    // PASO 3: GUARDAR LA INFORMACIÓN EN LA BASE DE DATOS
-    const { data: nuevaClase, error: insertError } = await supabase
-      .from('clases')
-      .insert({ 
-        titulo, 
-        descripcion, 
-        video_url: publicUrl,
-        ruta_id: rutaId 
-      })
-      .select('*, rutas(nombre)')
-      .single();
+      setTimeout(() => {
+        onClose();
+        setFeedback({ type: '', message: '' });
+      }, 3000);
 
-    if (insertError) {
+    } catch (error) {
       setIsUploading(false);
-      setFeedback({ type: 'error', message: 'Error al guardar la clase: ' + insertError.message });
-      // Limpieza: si falla el guardado en la DB, borramos el video que acabamos de subir
-      await supabase.storage.from('videos-clases').remove([filePath]);
-      return;
+      setFeedback({ type: 'error', message: 'Error en el proceso: ' + error.message });
+
+      // --- LÓGICA DE LIMPIEZA EN CASO DE ERROR ---
+      if (nuevaClaseId) {
+        // Si la clase se creó pero algo más falló, la borramos para no dejar registros huérfanos.
+        await supabase.from('clases').delete().eq('id', nuevaClaseId);
+        console.log(`Registro de clase huérfano (ID: ${nuevaClaseId}) eliminado.`);
+      }
     }
-
-    // PASO 4: ÉXITO TOTAL
-    setIsUploading(false);
-    setFeedback({ type: 'success', message: '¡Clase subida y guardada con éxito!' });
-    
-    onClaseCreada(nuevaClase); // Actualizamos la UI en la página principal
-
-    // Limpiamos el formulario
-    setTitulo('');
-    setDescripcion('');
-    setRutaId('');
-    setVideoFile(null);
-    e.target.reset();
-
-    // Cerramos el drawer después de un momento
-    setTimeout(() => {
-      onClose();
-      setFeedback({ type: '', message: '' });
-    }, 2500);
   };
 
   return (
@@ -113,7 +133,7 @@ export default function SubirClaseDrawer({ visible, onClose, rutasDisponibles, o
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-4 h-full overflow-y-auto pb-20">
+      <form id="subir-clase-form"  onSubmit={handleSubmit} className="p-4 space-y-4 h-full overflow-y-auto pb-20">
         <div>
           <label htmlFor="titulo" className="block font-medium text-gray-700">Título de la clase</label>
           <input

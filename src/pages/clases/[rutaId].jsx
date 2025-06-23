@@ -10,6 +10,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/solid';
 import ClaseSidebar from '@components/dashboard/alumno/claseSidebar';
 import VideoPlayer from '@components/dashboard/alumno/videoPlayer';
 import InfoTabs from '@components/dashboard/alumno/infoTabs';
+import ChatIA from '@components/dashboard/alumno/chatIA';
 
 export default function InterfazClasePage() {
   const router = useRouter();
@@ -181,6 +182,10 @@ const handleNextClase = () => {
                   userId={user.id}
                   onVideoEnded={handleNextClase}          
                 />
+              </div>
+              {/*Aqui esta el chat de IA */}
+              <div className="mt-8">
+                <ChatIA claseId={claseActiva.id} />
               </div>
               
               {/* Pestañas de información (descripción, recursos, comentarios) */}
