@@ -8,11 +8,12 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e) => {
     e.preventDefault()
-
+    setIsLoading(true)
     if (!email || !password) {
       setError('Por favor ingrese su correo y contraseña')
       return
@@ -27,13 +28,14 @@ export default function Login() {
     })
 
     const data = await res.json()
-    console.log(data)
+    //console.log(data)
     if (res.status !== 200) {
       setError(data.error)
+      setIsLoading(false)
       console.log(data.error)
       return
     }
-
+    setIsLoading(false)
     const rol = data.rol
     switch (rol) {
       case 'admin':
@@ -53,7 +55,7 @@ export default function Login() {
 
   return (
     <div 
-        className="bg-fixed bg-center bg-cover min-h-screen"
+      className="bg-fixed bg-center bg-cover min-h-screen"
       style={{ backgroundImage: "url('/FotoCoorporativa.jpeg')" }}
     >
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -80,12 +82,22 @@ export default function Login() {
                 {error}
               </div>
             )}
-            <button
+            {isLoading ? (
+              <button
               type="submit"
-              className="bg-[rgba(45,168,54,1)] text-white py-2 rounded hover:bg-blue-600 transition cursor-pointer"
-            >
-              Entrar
-            </button>
+              className="bg-gray-400 text-white py-2 rounded cursor-not-allowed"
+              >
+                Ingresando...
+              </button>
+            ) : (
+              <button
+              type="submit"
+              className="bg-verde text-white py-2 rounded hover:bg-blue-600 transition cursor-pointer"
+              >
+                Entrar
+              </button>
+            )}
+            
           </form>
         </div>
       </div>

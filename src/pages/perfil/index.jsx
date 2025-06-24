@@ -7,7 +7,8 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 // El componente de la página se queda igual
 export default function PerfilPage() {
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <main className="bg-fixed bg-center bg-cover min-h-screen"
+      style={{ backgroundImage: "url('/FotoCoorporativa.jpeg')" }}>
       <ProfileForm />
     </main>
   );

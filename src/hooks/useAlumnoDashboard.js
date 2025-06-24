@@ -85,7 +85,7 @@ export function useAlumnoDashboard() {
 
   const { data, error, isLoading } = useSWR(key, fetcher, {
     // Opciones adicionales (opcional pero recomendado):
-    revalidateOnFocus: true, // Recarga los datos cuando el usuario vuelve a la pestaña
+    revalidateOnFocus: false, // Recarga los datos cuando el usuario vuelve a la pestaña
     dedupingInterval: 300000, // No pidas los mismos datos más de una vez cada 5 minutos
   });
 
