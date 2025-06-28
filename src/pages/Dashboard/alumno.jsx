@@ -1,30 +1,29 @@
 // src/pages/Dashboard/alumno.jsx
-
 import { useRouter } from 'next/router';
 import { useAlumnoDashboard } from '@/hooks/useAlumnoDashboard';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import SlidebarAlumno from '@components/dashboard/alumno/slidebarAlumno';
 import RutaAprendizajeCard from '@components/dashboard/alumno/rutaAprendizajeCard';
 import Header from '@components/dashboard/alumno/header';
+import AuthGuard from '@components/authGuard'; // <-- 1. Importa el guardián
 
-export default function AlumnoPage() {
-  console.log('🔵 [AlumnoPage] Se está renderizando el componente...');
-  
+// La lógica principal del dashboard ahora puede asumir que el usuario SIEMPRE existe.
+function AlumnoDashboard() {
   const router = useRouter();
+  // El hook ahora se llamará sabiendo que hay un usuario.
   const { dashboardData, isLoading, isError } = useAlumnoDashboard();
   const supabase = useSupabaseClient();
 
-  // Log para ver el estado actual que recibe el componente
-  console.log('  🟡 Estado actual:', { isLoading, isError, dashboardData: dashboardData ? '✅ Hay datos' : '❌ No hay datos' });
-
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    // La redirección después del logout ahora es manejada por el AuthGuard,
+    // pero es bueno tenerla aquí también por si acaso.
     router.push('/avancemosDigital');
   };
-
-  if (isLoading) {
-    console.log('  🟢 [RENDER] Mostrando estado de CARGA.');
+  
+  // Este estado de carga ahora es más fiable.
+  // Se mostrará solo DESPUÉS de que AuthGuard confirme el usuario.
+  if (isLoading || !dashboardData) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <p className="text-gray-600 animate-pulse">Cargando tu dashboard...</p>
@@ -33,27 +32,16 @@ export default function AlumnoPage() {
   }
 
   if (isError) {
-    console.error('  🔴 [RENDER] Mostrando estado de ERROR.', isError);
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <p className="text-red-600">Hubo un error al cargar tus datos. Intenta de nuevo.</p>
-        <pre className="text-xs text-red-400 mt-4">{isError.message}</pre>
-      </div>
-    );
-  }
-
-  if (!dashboardData) {
-    console.warn('  🟠 [RENDER] Mostrando estado SIN DATOS (después de cargar).');
-    return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <p className="text-yellow-600">No se encontraron datos para tu perfil. Esto puede pasar si tu cuenta es nueva. Por favor, recarga.</p>
       </div>
     );
   }
   
-  console.log('  ✅ [RENDER] Mostrando DASHBOARD PRINCIPAL.');
   const { nombreAlumno, avatarUrl, rutasAsignadas } = dashboardData;
 
+  // ... (el resto de tu JSX es idéntico)
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <SlidebarAlumno nombreUsuario={nombreAlumno} onLogout={handleLogout} />
@@ -68,13 +56,23 @@ export default function AlumnoPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 px-6 bg-white rounded-xl shadow-lg">
+             <div className="text-center py-12 px-6 bg-white rounded-xl shadow-lg">
               <h3 className="text-xl font-semibold text-gray-700">¡Bienvenido!</h3>
               <p className="text-gray-500 mt-2">Aún no tienes rutas de aprendizaje asignadas.</p>
+              <p className="text-sm text-gray-400 mt-2">Por favor, contacta a un administrador para que te asigne tu primer curso.</p>
             </div>
           )}
         </main>
       </div>
     </div>
+  );
+}
+
+// 2. Envuelve tu componente exportado con el AuthGuard
+export default function AlumnoPage() {
+  return (
+    <AuthGuard>
+      <AlumnoDashboard />
+    </AuthGuard>
   );
 }

@@ -87,20 +87,24 @@ export function useAlumnoDashboard() {
   const supabase = useSupabaseClient();
   const user = useUser();
 
-  // La clave (key) es importante. SWR la usa para cachear.
-  // Si `user` es null, la clave será null y SWR no ejecutará el fetcher.
   const key = user ? [supabase, user] : null;
   console.log('  🔑 Key de SWR:', key ? `Establecida con user.id: ${user.id}` : 'null (esperando usuario)');
 
-  const { data, error, isLoading } = useSWR(key, fetcher, {
-    // Opciones adicionales (opcional pero recomendado):
-    revalidateOnFocus: false, // Recarga los datos cuando el usuario vuelve a la pestaña
-    dedupingInterval: 300000, // No pidas los mismos datos más de una vez cada 5 minutos
+  const { data, error, isLoading: isSWRLoading } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300000,
   });
-  console.log('Devolviendo alumnopage')
+
+  // Creamos un estado de carga más completo.
+  // La carga está activa si:
+  // 1. SWR está cargando, O
+  // 2. Tenemos un usuario pero todavía no tenemos datos ni un error.
+  const isLoading = isSWRLoading || (user && !data && !error);
+
+  console.log('Devolviendo alumnopage');
   return {
     dashboardData: data,
-    isLoading,
+    isLoading, // <-- Usamos nuestro estado de carga mejorado
     isError: error
   };
 }
