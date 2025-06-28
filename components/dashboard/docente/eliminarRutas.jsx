@@ -2,30 +2,29 @@
 
 import { useState } from 'react';
 import { IoClose } from 'react-icons/io5';
-// 1. IMPORTAMOS EL HOOK CORRECTO
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 export default function EliminarRutaDrawer({ visible, onClose, rutas, onRutaEliminada }) {
-  // 2. OBTENEMOS EL CLIENTE COMPARTIDO DESDE EL CONTEXTO
   const supabase = useSupabaseClient();
-  
-  // Estados para una mejor UX
   const [deletingId, setDeletingId] = useState(null);
+  // El estado de feedback ya está bien implementado, lo conservamos.
   const [feedback, setFeedback] = useState({ type: '', message: '' });
 
   const handleEliminarRuta = async (ruta) => {
-    // Usamos el ID de la ruta para saber cuál botón deshabilitar
-    setDeletingId(ruta.id); 
+    setDeletingId(ruta.id);
     setFeedback({ type: '', message: '' });
 
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar la ruta "${ruta.nombre}"? Todas las clases asociadas también serán eliminadas. Esta acción no se puede deshacer.`)) {
+    // 1. MEJORAMOS EL MENSAJE DE CONFIRMACIÓN CON EL NÚMERO DE CLASES
+    const classCount = ruta.clases?.length || 0;
+    const confirmationMessage = classCount > 0 
+      ? `¿Estás seguro de que quieres eliminar la ruta "${ruta.nombre}"? Se eliminarán también las ${classCount} clases que contiene. Esta acción es irreversible.`
+      : `¿Estás seguro de que quieres eliminar la ruta vacía "${ruta.nombre}"? Esta acción es irreversible.`;
+
+    if (!window.confirm(confirmationMessage)) {
       setDeletingId(null);
       return;
     }
     
-    // 3. AHORA USAMOS EL CLIENTE CORRECTO Y AUTENTICADO
-    // Supabase se encargará de borrar en cascada las clases asociadas
-    // gracias al 'ON DELETE CASCADE' que definimos en la tabla 'clases'.
     const { error } = await supabase
       .from('rutas')
       .delete()
@@ -33,53 +32,65 @@ export default function EliminarRutaDrawer({ visible, onClose, rutas, onRutaElim
 
     if (error) {
       setFeedback({ type: 'error', message: 'Error al eliminar la ruta: ' + error.message });
-      setDeletingId(null);
-      return;
+    } else {
+      setFeedback({ type: 'success', message: `¡Ruta "${ruta.nombre}" eliminada con éxito!` });
+      onRutaEliminada(ruta.id);
     }
     
-    // Si todo sale bien, actualizamos la UI
-    setFeedback({ type: 'success', message: `¡Ruta "${ruta.nombre}" eliminada con éxito!` });
-    onRutaEliminada(ruta.id);
-    
-    // Reseteamos el estado del botón después de un momento
+    // El reseteo del estado es una buena UX
     setTimeout(() => {
         setDeletingId(null);
-        setFeedback({ type: '', message: '' });
-    }, 2000);
+        if (!error) {
+            setFeedback({ type: '', message: '' });
+        }
+    }, 3000);
   };
 
   return (
     <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-xl font-semibold">Eliminar ruta</h2>
-        <button onClick={onClose} className="p-1 rounded-full hover:text-red-600 hover:bg-red-100 transition-colors">
-          <IoClose size={24} />
+      {/* 2. ENCABEZADO CONSISTENTE Y PULIDO */}
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-xl font-bold text-gray-800">Eliminar Rutas</h2>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+          <IoClose size={24} className="text-gray-600" />
         </button>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 overflow-y-auto h-[calc(100%-65px)]">
         {feedback.message && (
           <div className={`p-3 rounded-md text-sm text-center mb-4 ${feedback.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             {feedback.message}
           </div>
         )}
 
+        {/* 3. RENDERIZADO CON DISEÑO DE TARJETAS */}
         {rutas && rutas.length > 0 ? (
-          rutas.map((ruta) => (
-            <div key={ruta.id} className="flex justify-between items-center border-b pb-2">
-              <div>
-                <p className="font-semibold">{ruta.nombre}</p>
-                <p className="text-sm text-gray-500">{ruta.nivel} - {ruta.idioma}</p>
+          rutas.map((ruta) => {
+            const classCount = ruta.clases?.length || 0;
+            return (
+              <div key={ruta.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+                {/* Información de la ruta */}
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">{ruta.nombre}</h3>
+                  <p className="text-sm text-gray-600">{ruta.nivel} - {ruta.idioma}</p>
+                </div>
+
+                {/* Información crítica (conteo de clases) */}
+                <div className={`text-sm font-medium p-2 rounded-md text-center ${classCount > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                  {classCount > 0 ? `Contiene ${classCount} clase(s)` : 'Esta ruta no tiene clases'}
+                </div>
+
+                {/* Botón de acción */}
+                <button
+                  onClick={() => handleEliminarRuta(ruta)}
+                  disabled={deletingId === ruta.id}
+                  className="w-full text-sm bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {deletingId === ruta.id ? 'Eliminando...' : 'Eliminar Ruta Permanentemente'}
+                </button>
               </div>
-              <button
-                onClick={() => handleEliminarRuta(ruta)}
-                disabled={deletingId === ruta.id}
-                className="text-sm bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 flex-shrink-0 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {deletingId === ruta.id ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          ))
+            );
+          })
         ) : (
           <p className="text-center text-gray-500 mt-8">No hay rutas para eliminar.</p>
         )}

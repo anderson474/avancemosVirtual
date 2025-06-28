@@ -11,7 +11,7 @@ import EliminarClaseDrawer from '@components/dashboard/docente/eliminarClaseDraw
 import EliminarRutaDrawer from '@components/dashboard/docente/eliminarRutas';
 import ListaClasesDocente from '@components/dashboard/docente/listaClaseDocente';
 
-export default function DocentePage({ user, initialRutas, initialClases }) {
+export default function DocentePage({ user, initialRutas, initialClases, countRutas }) {
   const [vista, setVista] = useState(null);
   const [rutas, setRutas] = useState(initialRutas);
   const [clases, setClases] = useState(initialClases);
@@ -57,6 +57,7 @@ export default function DocentePage({ user, initialRutas, initialClases }) {
         visible={vista === 'eliminarRuta'}
         onClose={cerrarDrawer}
         rutas={rutas}
+        clases={countRutas}
         onRutaEliminada={removerRuta}
       />
       <EliminarClaseDrawer
@@ -98,6 +99,11 @@ export async function getServerSideProps(ctx) {
     .from('rutas')
     .select('*')
     .eq('docente_id', session.user.id);
+
+  const { data: countRutas } = await supabase
+  .from('rutas')
+  .select('clases(count)') // <-- ¡LA MAGIA ESTÁ AQUÍ!
+  .eq('docente_id', session.user.id);
     
   // Obtener las clases que pertenecen a las rutas de este docente
   const rutaIds = rutas?.map(r => r.id) || [];
@@ -110,6 +116,7 @@ export async function getServerSideProps(ctx) {
       user: userProfile,
       initialRutas: rutas || [],
       initialClases: clases || [],
+      countRutas: countRutas || 0,
     },
   };
 }
