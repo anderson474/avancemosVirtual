@@ -6,10 +6,15 @@ import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 // Recibe como argumento la clave (key) que le pasemos.
 // En este caso, la clave contendrá el cliente de Supabase y el usuario.
 const fetcher = async ([supabase, user]) => {
+  console.log('🚀 [Fetcher] Iniciando búsqueda de datos...');
   // Si no hay usuario, no hacemos nada.
-  if (!user) return null;
+  if (!user){
+    console.log('  🤔 [Fetcher] No hay usuario, deteniendo búsqueda.');
+    return null;
+  } 
 
   // --- 1. Obtener el perfil del alumno (nombre y avatar) ---
+  console.log('   fetching... 1/3 - Perfil');
   const { data: perfil, error: perfilError } = await supabase
     .from('perfiles')
     .select('nombre, username, avatar_url')
@@ -26,6 +31,7 @@ const fetcher = async ([supabase, user]) => {
   const nombreAlumno = perfil.username || perfil.nombre || user.email;
 
   // --- 2. Obtener las rutas asignadas al alumno ---
+  console.log('  fetching... 2/3 - Rutas');
   const { data: rutasData, error: rutasError } = await supabase
     .from('rutas_alumnos')
     .select(`
@@ -65,6 +71,7 @@ const fetcher = async ([supabase, user]) => {
       ultimaClaseId: ruta.ultima_clase_vista_id, // Asegúrate que este dato viene de rutasData
     };
   });
+  console.log('✅ [Fetcher] Búsqueda de datos completada con éxito.');
   
   // El objeto que retornamos será el valor de `data` en nuestro componente
   return {
@@ -76,19 +83,21 @@ const fetcher = async ([supabase, user]) => {
 
 // --- Este es el Hook personalizado que usaremos en nuestra página ---
 export function useAlumnoDashboard() {
+  console.log('🎣 [Hook] Se está ejecutando useAlumnoDashboard.');
   const supabase = useSupabaseClient();
   const user = useUser();
 
   // La clave (key) es importante. SWR la usa para cachear.
   // Si `user` es null, la clave será null y SWR no ejecutará el fetcher.
   const key = user ? [supabase, user] : null;
+  console.log('  🔑 Key de SWR:', key ? `Establecida con user.id: ${user.id}` : 'null (esperando usuario)');
 
   const { data, error, isLoading } = useSWR(key, fetcher, {
     // Opciones adicionales (opcional pero recomendado):
     revalidateOnFocus: false, // Recarga los datos cuando el usuario vuelve a la pestaña
     dedupingInterval: 300000, // No pidas los mismos datos más de una vez cada 5 minutos
   });
-
+  console.log('Devolviendo alumnopage')
   return {
     dashboardData: data,
     isLoading,
