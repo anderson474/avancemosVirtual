@@ -1,2 +1,3 @@
 # .vercelignore
 supabase
+#este es un archivo para que vercel ignore estas variables
