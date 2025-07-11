@@ -19,7 +19,7 @@ const fetcher = async ([supabase, user]) => {
     .from('perfiles')
     .select('nombre, username, avatar_url')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (perfilError) throw new Error('Error al obtener el perfil del alumno.');
   

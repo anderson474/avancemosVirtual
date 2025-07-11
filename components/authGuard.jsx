@@ -1,34 +1,47 @@
 // src/components/AuthGuard.jsx
-import { useUser } from '@supabase/auth-helpers-react';
+import { useSessionContext } from '@supabase/auth-helpers-react'; // <-- Cambio clave 1: Importar el hook correcto
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 
-// Este es un componente de orden superior que protege las rutas.
 const AuthGuard = ({ children }) => {
-  const user = useUser();
+  // <-- Cambio clave 2: Usar useSessionContext para obtener el estado de carga y la sesión
+  const { isLoading, session } = useSessionContext();
   const router = useRouter();
 
   useEffect(() => {
-    // Si no hay usuario y la ruta no es la de login, redirigir.
-    // Usamos `user === null` para asegurarnos de que la comprobación ha terminado.
-    // `user` es `undefined` mientras se está cargando.
-    if (user === null) {
-      // Puedes especificar la ruta de tu página de login.
-      // Usando la de tu log de error: /avancemosDigital
-      router.push('/avancemosDigital'); 
+    // Solo ejecutamos la lógica de redirección CUANDO la carga haya terminado.
+    if (!isLoading) {
+      // Si la carga terminó y NO hay sesión, entonces sí redirigimos.
+      if (!session) {
+        router.push('/avancemosDigital');
+      }
     }
-  }, [user, router]);
+    // La dependencia ahora es `isLoading` y `session`.
+  }, [isLoading, session, router]);
 
-  // Si el usuario existe, muestra el contenido de la página.
-  if (user) {
+  // <-- Cambio clave 3: Lógica de renderizado más robusta
+
+  // 1. Si está cargando, SIEMPRE mostramos el loader.
+  // Esto previene cualquier parpadeo o redirección prematura.
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <p className="text-gray-600 animate-pulse">Verificando sesión...</p>
+      </div>
+    );
+  }
+
+  // 2. Si la carga terminó y HAY una sesión, mostramos el contenido protegido.
+  if (session) {
     return <>{children}</>;
   }
 
-  // Mientras se verifica el usuario (user es undefined), muestra un loader global.
-  // Esto evita el parpadeo y que se muestre la página por un segundo.
+  // 3. Si la carga terminó y NO hay sesión, no mostramos nada (o el loader)
+  // porque el useEffect ya se está encargando de la redirección.
+  // Devolver el loader aquí evita un "flash" de pantalla en blanco.
   return (
     <div className="flex justify-center items-center h-screen bg-gray-50">
-      <p className="text-gray-600 animate-pulse">Verificando sesión...</p>
+        <p className="text-gray-600 animate-pulse">Redirigiendo...</p>
     </div>
   );
 };
