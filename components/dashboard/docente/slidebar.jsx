@@ -5,7 +5,7 @@ export default function Slidebar({ onSelect }) {
   return (
     <div className="h-screen w-50 bg-white flex flex-col border-r border-gray-300 border-2">
       <div className="p-6 text-2xl font-bold">
-        <Image src="/logo.ico" width={500} height={100} alt="Logo" />
+        <Image src="/LOGO AVANCEMOS.png" width={500} height={100} alt="Logo" />
       </div>
 
       <nav className="flex-1 px-4 space-y-2">

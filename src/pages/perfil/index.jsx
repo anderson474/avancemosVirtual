@@ -1,10 +1,9 @@
 // src/pages/perfil/index.jsx
 
 import ProfileForm from '@components/dashboard/alumno/profileForm';
-// IMPORTANTE: Esta es la función correcta para el servidor
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 
-// El componente de la página se queda igual
+
 export default function PerfilPage() {
   return (
     <main className="bg-fixed bg-center bg-cover min-h-screen"
@@ -14,7 +13,7 @@ export default function PerfilPage() {
   );
 }
 
-// ESTA ES LA FUNCIÓN QUE CORREGIMOS
+
 export const getServerSideProps = async (ctx) => {
   // 1. Crear un cliente de Supabase para el SERVIDOR
   const supabase = createPagesServerClient(ctx);
