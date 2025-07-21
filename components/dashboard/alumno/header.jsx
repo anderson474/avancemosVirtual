@@ -6,6 +6,8 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { LogOut, UserCircle2 } from 'lucide-react';
+import Lottie from 'lottie-react';
+import Bookloading  from "@public/animation/Bookloading.json"
 
 export default function Header({ nombreUsuario, avatarUrl, onLogout }) {
   const router = useRouter();
@@ -19,12 +21,19 @@ export default function Header({ nombreUsuario, avatarUrl, onLogout }) {
   };
 
   return (
-    <header className="flex justify-between items-center px-6 py-4 bg-white border-b border-gray-200">
-      <h1 className="text-xl font-semibold text-gray-700">Mi Panel</h1>
+    <header className="flex justify-between items-center px-6 py-4 bg-white">
+      <h1 className="text-xl font-semibold text-gray-500">Mi Panel</h1>
+      <div className="w-24 h-24 -mt-4">
+          <Lottie 
+            animationData={Bookloading} 
+            loop={true} // Puedes ponerlo en false si quieres que se reproduzca una sola vez
+          />
+        </div>
 
       <Menu as="div" className="relative inline-block text-left">
         <div>
-          <Menu.Button className="flex items-center space-x-3 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-verde">
+          <Menu.Button className="flex items-center space-x-3 rounded-full focus:outline-none focus:ring-2 
+          focus:ring-offset-2 focus:ring-verde hover:outline-none hover:ring-2 hover:ring-offset-4 hover:ring-verde">
             <span className="hidden md:inline text-gray-600 font-medium">
               {nombreUsuario}
             </span>
@@ -48,7 +57,8 @@ export default function Header({ nombreUsuario, avatarUrl, onLogout }) {
           leaveFrom="transform opacity-100 scale-100"
           leaveTo="transform opacity-0 scale-95"
         >
-          <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+          <Menu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 
+          rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
             <div className="px-3 py-2 text-sm text-gray-500">
               <p>Bienvenido,</p>
               <p className="font-semibold text-gray-800 truncate">{nombreUsuario}</p>

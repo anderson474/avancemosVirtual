@@ -119,7 +119,7 @@ export default function ProfileForm() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-8 bg-white rounded-lg shadow-md">
+    <div className="fixed inset-0 max-w-2xl mx-auto p-8 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Mi Perfil</h1>
       
       <form onSubmit={updateProfile} className="space-y-6">

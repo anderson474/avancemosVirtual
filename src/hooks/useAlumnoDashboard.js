@@ -92,7 +92,7 @@ export function useAlumnoDashboard() {
 
   const { data, error, isLoading: isSWRLoading } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 300000,
+    dedupingInterval: 400000,
   });
 
   // Creamos un estado de carga más completo.

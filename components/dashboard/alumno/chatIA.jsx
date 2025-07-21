@@ -2,6 +2,12 @@
 
 import { useState } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import Lottie from 'lottie-react';
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
+
+// TODO: Coloca tus animaciones Lottie en la carpeta public/animations/
+import aiBrainAnimation from '@public/animation/ai-brain-animation.json';
+import typingAnimation from '@public/animation/typing-dots-animation.json';
 
 /**
  * Un componente de chat que permite a los usuarios hacer preguntas sobre una clase específica.
@@ -56,50 +62,86 @@ export default function ChatIA({ claseId }) {
   };
 
   return (
-    <div className="mt-8 p-6 bg-white rounded-lg shadow-md border border-gray-200">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">Pregúntale a la Clase</h3>
-      
-      {/* Historial de la Conversación */}
-      <div className="mb-4 space-y-4 max-h-80 overflow-y-auto pr-2">
-        {historial.map((item, index) => (
-          <div key={index} className={`flex ${item.tipo === 'usuario' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-prose px-4 py-2 rounded-lg ${
-              item.tipo === 'usuario' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-800'
-            }`}>
-              <p className="whitespace-pre-wrap">{item.texto}</p>
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-            <div className="flex justify-start">
-                <div className="px-4 py-2 rounded-lg bg-gray-200 text-gray-800">
-                    <span className="animate-pulse">Pensando...</span>
-                </div>
-            </div>
-        )}
-      </div>
+    // 1. Contenedor con la sombra multicolor
+    <div className="relative group mt-8">
+      {/* El elemento que crea la sombra con degradado y desenfoque */}
+      <div 
+        className="
+          absolute -inset-1 
+          bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 
+          rounded-2xl 
+          blur 
+          opacity-25 
+          group-hover:opacity-50 
+          transition duration-1000 group-hover:duration-200
+        "
+        aria-hidden="true"
+      ></div>
 
-      {/* Formulario de Pregunta */}
-      <form onSubmit={handlePregunta} className="flex items-center gap-3">
-        <input
-          type="text"
-          value={pregunta}
-          onChange={(e) => setPregunta(e.target.value)}
-          placeholder="Escribe tu pregunta sobre esta clase..."
-          className="flex-1 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-          disabled={isLoading}
-        />
-        <button 
-          type="submit" 
-          className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" 
-          disabled={isLoading || !pregunta.trim()}
-        >
-          Enviar
-        </button>
-      </form>
-      <p className="text-xs text-gray-400 mt-2">La IA responderá basándose únicamente en el contenido de esta clase.</p>
+      {/* El contenido principal, por encima de la sombra */}
+      <div className="relative p-6 bg-white rounded-2xl shadow-lg border border-slate-200">
+        
+        {/* 2. Título con el Lottie File */}
+        <div className="flex items-center gap-3 mb-6">
+          <Lottie 
+            animationData={aiBrainAnimation} 
+            loop={true} 
+            className="w-14 h-14" 
+          />
+          <h3 className="text-2xl font-bold text-slate-800">Pregúntale a la IA</h3>
+        </div>
+        
+        {/* 3. Historial de la Conversación con colores vibrantes */}
+        <div className="mb-4 space-y-4 max-h-80 overflow-y-auto pr-4">
+          {historial.map((item, index) => (
+            <div key={index} className={`flex ${item.tipo === 'usuario' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-prose px-4 py-3 rounded-xl shadow-sm ${
+                item.tipo === 'usuario' 
+                  ? 'bg-gradient-to-br from-blue-500 to-violet-600 text-white rounded-br-none' 
+                  : 'bg-slate-100 text-slate-800 rounded-bl-none'
+              }`}>
+                <p className="whitespace-pre-wrap text-sm">{item.texto}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* 4. Indicador de carga mejorado con Lottie */}
+          {isLoading && (
+              <div className="flex justify-start">
+                  <div className="px-4 py-2 rounded-xl rounded-bl-none bg-slate-100 flex items-center">
+                      <Lottie animationData={typingAnimation} loop={true} className="w-16 h-8" />
+                  </div>
+              </div>
+          )}
+        </div>
+
+        {/* 5. Formulario de Pregunta rediseñado */}
+        <form onSubmit={handlePregunta} className="flex items-center gap-3">
+          <input
+            type="text"
+            value={pregunta}
+            onChange={(e) => setPregunta(e.target.value)}
+            placeholder="Escribe tu pregunta sobre esta clase..."
+            className="flex-1 w-full p-3 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white transition"
+            disabled={isLoading}
+          />
+          <button 
+            type="submit" 
+            className="
+              flex items-center justify-center gap-2 px-5 py-3 
+              font-semibold text-white rounded-lg 
+              bg-gradient-to-r from-blue-600 to-violet-600 
+              hover:opacity-90 active:scale-95 transition-all
+              disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed
+            "
+            disabled={isLoading || !pregunta.trim()}
+          >
+            <PaperAirplaneIcon className="h-5 w-5" />
+            <span>Enviar</span>
+          </button>
+        </form>
+        <p className="text-xs text-slate-500 mt-2">La IA responderá basándose únicamente en el contenido de esta clase.</p>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import SlidebarAlumno from '@components/dashboard/alumno/slidebarAlumno';
 import RutaAprendizajeCard from '@components/dashboard/alumno/rutaAprendizajeCard';
 import Header from '@components/dashboard/alumno/header';
 import AuthGuard from '@components/authGuard'; // <-- 1. Importa el guardián
+import Lottie from 'lottie-react';
+import loading  from "@public/animation/loading.json"
 
 // La lógica principal del dashboard ahora puede asumir que el usuario SIEMPRE existe.
 function AlumnoDashboard() {
@@ -25,7 +27,13 @@ function AlumnoDashboard() {
   // Se mostrará solo DESPUÉS de que AuthGuard confirme el usuario.
   if (isLoading || !dashboardData) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
+        {/* <div className="w-64 h-64 mt-4">
+          <Lottie 
+            animationData={loading} 
+            loop={false} // Puedes ponerlo en false si quieres que se reproduzca una sola vez
+          />
+        </div> */}
         <p className="text-gray-600 animate-pulse">Cargando tu dashboard...</p>
       </div>
     );

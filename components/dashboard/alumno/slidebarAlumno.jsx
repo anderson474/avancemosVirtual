@@ -21,10 +21,11 @@ export default function SlidebarAlumno({ nombreUsuario, onLogout }) {
   ];
 
   return (
-    <aside className="w-64 bg-white shadow-xl flex flex-col h-screen border-r border-gray-200">
-      <div className="p-6 text-center border-b border-gray-100">
+    <aside className="w-52 bg-gradient-to-br from-verde from-10% to-white 
+        to-40% shadow-xl flex flex-col h-screen border-r border-gray-200">
+      <div className="p-6 text-center border-gray-100">
         <Image
-          src="/logo.ico"
+          src="/LOGO AVANCEMOS.png"
           width={120}
           height={60}
           alt="Logo de la Empresa"
@@ -52,10 +53,12 @@ export default function SlidebarAlumno({ nombreUsuario, onLogout }) {
         </ul>
       </nav>
 
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-gray-200">
         <button
           onClick={onLogout}
-          className="w-full flex items-center justify-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-lg"
+          className="w-full border border-gray-300 shadow-lg cursor-pointer 
+          transition-shadow duration-300 ease-in-out flex items-center justify-center 
+          px-4 py-2 text-sm text-red-600 hover:bg-red-200 hover:shadow rounded-lg"
         >
           <LogOut className="h-5 w-5 mr-2" />
           Cerrar Sesión

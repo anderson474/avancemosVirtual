@@ -1,5 +1,5 @@
 // src/pages/perfil/index.jsx
-
+import SlidebarAlumno from '@components/dashboard/alumno/slidebarAlumno';
 import ProfileForm from '@components/dashboard/alumno/profileForm';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 
@@ -8,6 +8,7 @@ export default function PerfilPage() {
   return (
     <main className="bg-fixed bg-center bg-cover min-h-screen"
       style={{ backgroundImage: "url('/FotoCoorporativa.jpeg')" }}>
+      <SlidebarAlumno/>
       <ProfileForm />
     </main>
   );

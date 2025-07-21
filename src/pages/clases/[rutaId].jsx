@@ -12,6 +12,9 @@ import VideoPlayer from '@components/dashboard/alumno/videoPlayer';
 import InfoTabs from '@components/dashboard/alumno/infoTabs';
 import ChatIA from '@components/dashboard/alumno/chatIA';
 
+import Lottie from 'lottie-react';
+import loading  from "@public/animation/loading.json"
+
 export default function InterfazClasePage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -112,7 +115,17 @@ const handleNextClase = () => {
 
   // --- Vistas de Carga y Error ---
   if (isLoading) {
-    return <div className="flex justify-center items-center h-screen bg-gray-100 font-semibold text-gray-600">Cargando contenido del curso...</div>;
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
+        <div className="w-64 h-64 mt-4">
+          <Lottie 
+            animationData={loading} 
+            loop={false} // Puedes ponerlo en false si quieres que se reproduzca una sola vez
+          />
+        </div>
+        <p className="text-gray-600 animate-pulse">Cargando contenido del curso...</p>
+      </div>
+    );
   }
 
   if (error) {
@@ -187,7 +200,6 @@ const handleNextClase = () => {
               <div className="mt-8">
                 <ChatIA claseId={claseActiva.id} />
               </div>
-              
               {/* Pestañas de información (descripción, recursos, comentarios) */}
               <InfoTabs claseId={claseActiva.id} />
             </div>
