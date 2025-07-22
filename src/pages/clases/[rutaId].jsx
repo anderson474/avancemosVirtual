@@ -140,7 +140,7 @@ export default function InterfazClasePage() {
         <p className="text-red-500 font-semibold text-lg">{error}</p>
         <button
           onClick={() => router.push("/Dashboard/alumno")}
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="mt-6 cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
           Volver al Panel
         </button>
@@ -166,7 +166,7 @@ export default function InterfazClasePage() {
         <header className="flex-shrink-0 flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
           <button
             onClick={() => router.push("/Dashboard/alumno")}
-            className="flex items-center px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-gray-800 font-medium"
+            className="flex items-center px-4 py-2 bg-gray-100 cursor-pointer rounded-lg hover:bg-gray-200 transition text-gray-800 font-medium"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Volver al Panel
@@ -183,7 +183,7 @@ export default function InterfazClasePage() {
           <div className="flex justify-end">
             <button
               onClick={handleNextClase}
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 cursor-pointer bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
             >
               Siguiente Clase →
             </button>
