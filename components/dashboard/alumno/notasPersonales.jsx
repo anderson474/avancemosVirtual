@@ -8,6 +8,7 @@ import Toolbar from '@components/dashboard/alumno/editor/toolbar';
 import BubbleMenuToolbar from '@components/dashboard/alumno/editor/bubbleMenuToolbar';
 import Lottie from 'lottie-react';
 import NoteDocument from "@public/animation/NotesDocument.json";
+import Link from '@tiptap/extension-link'; 
 
 // Estilos (sin cambios)
 const tiptapStyles = `
@@ -27,6 +28,14 @@ export default function NotasPersonales({ claseId }) {
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({
         placeholder: 'Empieza a escribir tus notas aquí. Selecciona texto para formatearlo...',
+      }),
+      Link.configure({
+        // Opcional: abre los enlaces en una nueva pestaña
+        openOnClick: 'whenNotEditable', // o true si quieres que se abran siempre
+        HTMLAttributes: {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
       }),
     ],
     content: '',
@@ -49,7 +58,6 @@ export default function NotasPersonales({ claseId }) {
     setError(null);
     const contenidoJSON = editor.getJSON();
 
-    // --> ¡AQUÍ ESTÁ LA MAGIA!
     // Usamos `upsert` con la opción `onConflict`.
     // Esto le dice a Supabase: "Intenta insertar esta fila. Si viola la restricción
     // 'notas_personales_user_id_clase_id_key' (la que creamos antes),
@@ -153,6 +161,11 @@ export default function NotasPersonales({ claseId }) {
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-bold text-slate-800">Mis Notas Personales</h3>
         {/* Lottie y Status UI (sin cambios) */}
+        <Lottie 
+            animationData={NoteDocument} 
+            loop={true} 
+            className="w-14 h-14" 
+          />
         <div className="flex items-center gap-2 text-sm text-slate-500 transition-opacity duration-300">
           {status === 'Guardando...' && <span className="animate-spin h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full"></span>}
           {status === 'Guardado' && <span className="text-green-500">✓</span>}

@@ -1,8 +1,23 @@
 // components/dashboard/alumno/RutaAprendizajeCard.jsx
-import Link from 'next/link';
+//import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/router';
 
 export default function RutaAprendizajeCard({ ruta }) {
+  const router = useRouter();
+
+  const handleNavigate = () => {
+    router.push(
+      {
+        pathname: `/rutas/${ruta.id}`,
+        // Pasamos los datos de la ruta como 'query'.
+        // No aparecerán en la URL visible, pero estarán disponibles en el router.
+        query: { rutaData: JSON.stringify(ruta) }, 
+      },
+      `/rutas/${ruta.id}` // Esta es la URL "limpia" que el usuario verá.
+    );
+  };
+
   return (
     <div className="bg-gradient-to-br from-lime-400 from-1% via-white via-15% to-white to-80% rounded-xl shadow-lg shadow-gray-700 overflow-hidden hover:shadow-2xl 
     transition-shadow duration-300 ease-in-out">
@@ -27,14 +42,14 @@ export default function RutaAprendizajeCard({ ruta }) {
         </div>
 
         <div className="mt-6">
-          <Link
-            href={`/clases/${ruta.id}`}
+          <button
+            onClick={handleNavigate}
             className="w-full text-center inline-block px-6 py-2 text-sm font-bold 
             text-white bg-verde rounded-lg hover:bg-white hover:text-verde hover:border 
-            hover:border-gray-300 transition-colors hover:shadow-2xl"
+            hover:border-gray-300 transition-colors hover:shadow-2xl cursor-pointer"
           >
             Continuar Aprendiendo
-          </Link>
+          </button>
         </div>
       </div>
     </div>
