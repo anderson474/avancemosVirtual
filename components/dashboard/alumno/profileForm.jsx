@@ -138,7 +138,7 @@ export default function ProfileForm() {
   };
 
   return (
-    <div className="fixed inset-0 max-w-2xl mx-auto p-8 bg-white rounded-lg shadow-md overflow-y-auto">
+    <div className="fixed inset-0 max-w-2xl mx-auto p-8 bg-gradient-to-br from-slate-400 from-1% via-white via-15% to-white to-80% rounded-lg shadow-md overflow-y-auto mt-2">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Mi Perfil</h1>
 
       <form onSubmit={updateProfile} className="space-y-6">
