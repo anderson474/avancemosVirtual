@@ -20,7 +20,7 @@ export default function RutaAprendizajeCard({ ruta }) {
 
   return (
     <div
-      className="bg-gradient-to-br from-slate-400 from-1% via-white via-15% to-white to-80% rounded-xl shadow-lg shadow-gray-700 overflow-hidden hover:shadow-2xl 
+      className="backdrop-blur-xs rounded-xl shadow-lg shadow-gray-700 overflow-hidden hover:shadow-2xl 
     transition-shadow duration-300 ease-in-out"
     >
       <div className="p-6">
@@ -35,7 +35,7 @@ export default function RutaAprendizajeCard({ ruta }) {
               {ruta.progreso}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+          <div className="w-full backdrop-blur-xs rounded-full h-2.5 overflow-hidden">
             <motion.div
               className="bg-slate-200 rounded-full h-2.5 overflow-hidden"
               initial={{ width: 0 }}

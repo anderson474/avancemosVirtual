@@ -2,7 +2,7 @@
 
 // La prop 'onPreviewClick' viene desde RutaCard -> ListaClasesDocente
 export default function ClaseCard({ clase, onPreviewClick }) {
-  const videoUrlWithCacheBuster = `${clase.video_url}#t=0.1`;
+  const videoUrlWithCacheBuster = `${clase.video_url}#t=2`;
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 flex flex-col">
@@ -29,7 +29,7 @@ export default function ClaseCard({ clase, onPreviewClick }) {
           {/* Este es el cambio principal: ahora es un botón que llama a onPreviewClick */}
           <button
             onClick={() => onPreviewClick(clase)}
-            className="w-full text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
+            className="w-full cursor-pointer text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
           >
             Previsualizar Clase
           </button>

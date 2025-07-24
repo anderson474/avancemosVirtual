@@ -21,7 +21,7 @@ export default function Header({ nombreUsuario, avatarUrl, onLogout }) {
   };
 
   return (
-    <header className="flex justify-between items-center px-6 py-4 bg-white">
+    <header className="flex justify-between items-center px-6 py-4 backdrop-blur-lg shadow-md">
       <h1 className="relative text-xl font-semibold text-gray-500">
         Mi Panel
         <div className="absolute left-16 w-24 h-24 top-0">

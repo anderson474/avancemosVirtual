@@ -79,7 +79,10 @@ function AlumnoDashboard() {
   const { nombreAlumno, avatarUrl, rutasAsignadas } = dashboardData;
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <div
+      className="flex min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: "url('/fondo/fondoRuta.jpg')" }}
+    >
       <SlidebarAlumno nombreUsuario={nombreAlumno} onLogout={handleLogout} />
       <div className="flex-1 flex flex-col">
         <Header
@@ -87,7 +90,7 @@ function AlumnoDashboard() {
           avatarUrl={avatarUrl}
           onLogout={handleLogout}
         />
-        <main className="flex-1 px-6 py-8 bg-gray-50">
+        <main className="flex-1 px-6 py-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-8">
             Mis Rutas de Aprendizaje
           </h2>

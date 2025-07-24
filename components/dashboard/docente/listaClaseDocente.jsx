@@ -51,10 +51,7 @@ export default function ListaClasesDocente({ clases, rutas }) {
   // de 'rutasAgrupadas' sigue siendo la misma que esperaba.
   return (
     <>
-      <div
-        className="min-h-screen bg-cover bg-center bg-fixed"
-        style={{ backgroundImage: "url('/fondo/fondoRuta.jpg')" }}
-      >
+      <div className="min-h-screen bg-cover bg-center bg-fixed">
         <div className="p-6 w-full pt-20 space-y-6">
           {rutasAgrupadas.length === 0 ? (
             <div className="bg-white/80 backdrop-blur-sm p-8 rounded-lg text-center text-gray-600 shadow-md">

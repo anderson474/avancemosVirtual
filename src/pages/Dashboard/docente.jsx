@@ -1,17 +1,22 @@
 // src/pages/Dashboard/docente.jsx
-import { useState } from 'react';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { useState } from "react";
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 // Tus imports de componentes siguen igual...
-import Slidebar from '@components/dashboard/docente/slidebar';
-import Bienvenida from '@components/dashboard/bienvenida';
-import CrearRutaDrawer from '@components/dashboard/docente/crearRutaDrawer';
-import SubirClaseDrawer from '@components/dashboard/docente/subirClaseDrawer';
-import EliminarClaseDrawer from '@components/dashboard/docente/eliminarClaseDrawer';
-import EliminarRutaDrawer from '@components/dashboard/docente/eliminarRutas';
-import ListaClasesDocente from '@components/dashboard/docente/listaClaseDocente';
+import Slidebar from "@components/dashboard/docente/slidebar";
+import Bienvenida from "@components/dashboard/bienvenida";
+import CrearRutaDrawer from "@components/dashboard/docente/crearRutaDrawer";
+import SubirClaseDrawer from "@components/dashboard/docente/subirClaseDrawer";
+import EliminarClaseDrawer from "@components/dashboard/docente/eliminarClaseDrawer";
+import EliminarRutaDrawer from "@components/dashboard/docente/eliminarRutas";
+import ListaClasesDocente from "@components/dashboard/docente/listaClaseDocente";
 
-export default function DocentePage({ user, initialRutas, initialClases, countRutas }) {
+export default function DocentePage({
+  user,
+  initialRutas,
+  initialClases,
+  countRutas,
+}) {
   const [vista, setVista] = useState(null);
   const [rutas, setRutas] = useState(initialRutas);
   const [clases, setClases] = useState(initialClases);
@@ -24,17 +29,20 @@ export default function DocentePage({ user, initialRutas, initialClases, countRu
     setRutas([...rutas, nuevaRuta]);
   };
   const removerRuta = (idRuta) => {
-    setRutas(rutas.filter(r => r.id !== idRuta));
+    setRutas(rutas.filter((r) => r.id !== idRuta));
   };
   const agregarClase = (nuevaClase) => {
     setClases([...clases, nuevaClase]);
   };
   const removerClase = (idClase) => {
-    setClases(clases.filter(c => c.id !== idClase));
+    setClases(clases.filter((c) => c.id !== idClase));
   };
 
   return (
-    <div className="flex">
+    <div
+      className=" flex min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: "url('/fondo/fondoRuta.jpg')" }}
+    >
       <Slidebar onSelect={handleOpcion} />
       <main className="flex-1">
         <Bienvenida nombre={user.nombre || user.email} />
@@ -43,25 +51,25 @@ export default function DocentePage({ user, initialRutas, initialClases, countRu
 
       {/* Pasamos los datos y las funciones de actualización a los drawers */}
       <CrearRutaDrawer
-        visible={vista === 'crearRuta'}
+        visible={vista === "crearRuta"}
         onClose={cerrarDrawer}
         onRutaCreada={agregarRuta}
       />
       <SubirClaseDrawer
-        visible={vista === 'subirClase'}
+        visible={vista === "subirClase"}
         onClose={cerrarDrawer}
         rutasDisponibles={rutas}
         onClaseCreada={agregarClase}
       />
       <EliminarRutaDrawer
-        visible={vista === 'eliminarRuta'}
+        visible={vista === "eliminarRuta"}
         onClose={cerrarDrawer}
         rutas={rutas}
         clases={countRutas}
         onRutaEliminada={removerRuta}
       />
       <EliminarClaseDrawer
-        visible={vista === 'eliminarClase'}
+        visible={vista === "eliminarClase"}
         onClose={cerrarDrawer}
         clases={clases}
         onClaseEliminada={removerClase}
@@ -73,43 +81,48 @@ export default function DocentePage({ user, initialRutas, initialClases, countRu
 // --- CARGA DE DATOS DEL LADO DEL SERVIDOR ---
 export async function getServerSideProps(ctx) {
   const supabase = createPagesServerClient(ctx);
-  
-  const { data: { session } } = await supabase.auth.getSession();
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   // ----> AÑADE ESTE LOG <----
-  console.log('SESSION EN EL SERVIDOR (getServerSideProps):', session ? `Usuario ${session.user.email}` : 'SESIÓN NULA');
+  console.log(
+    "SESSION EN EL SERVIDOR (getServerSideProps):",
+    session ? `Usuario ${session.user.email}` : "SESIÓN NULA"
+  );
 
-  
   if (!session) {
-    return { redirect: { destination: '/avancemosDigital', permanent: false } };
+    return { redirect: { destination: "/avancemosDigital", permanent: false } };
   }
-
-  
 
   // Obtener perfil del docente
   const { data: userProfile } = await supabase
-    .from('perfiles')
-    .select('nombre')
-    .eq('id', session.user.id)
+    .from("perfiles")
+    .select("nombre")
+    .eq("id", session.user.id)
     .single();
 
   // Obtener las rutas creadas por este docente
   const { data: rutas } = await supabase
-    .from('rutas')
-    .select('*')
-    .eq('docente_id', session.user.id);
+    .from("rutas")
+    .select("*")
+    .eq("docente_id", session.user.id);
 
   const { data: countRutas } = await supabase
-  .from('rutas')
-  .select('clases(count)') // <-- ¡LA MAGIA ESTÁ AQUÍ!
-  .eq('docente_id', session.user.id);
-    
+    .from("rutas")
+    .select("clases(count)") // <-- ¡LA MAGIA ESTÁ AQUÍ!
+    .eq("docente_id", session.user.id);
+
   // Obtener las clases que pertenecen a las rutas de este docente
-  const rutaIds = rutas?.map(r => r.id) || [];
-  const { data: clases } = rutaIds.length > 0 
-    ? await supabase.from('clases').select('*, rutas(nombre)').in('ruta_id', rutaIds) 
-    : { data: [] };
+  const rutaIds = rutas?.map((r) => r.id) || [];
+  const { data: clases } =
+    rutaIds.length > 0
+      ? await supabase
+          .from("clases")
+          .select("*, rutas(nombre)")
+          .in("ruta_id", rutaIds)
+      : { data: [] };
 
   return {
     props: {
@@ -120,4 +133,3 @@ export async function getServerSideProps(ctx) {
     },
   };
 }
-

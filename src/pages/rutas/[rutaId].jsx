@@ -12,61 +12,77 @@ import {
 } from "@heroicons/react/24/solid";
 
 // -> 1. MODIFICAMOS ClaseItem para el efecto GLASSMORPHISM
+// Puedes mantener este componente en pages/rutas/[rutaId].jsx o moverlo a su propio archivo
+
 const ClaseItem = ({ ruta, clase, isLocked }) => {
-  // Clases base para todas las tarjetas
+  // Clases base para todas las tarjetas, manteniendo el efecto vidrio
   const baseClasses =
-    "flex items-center justify-between p-4 rounded-xl transition-all duration-300";
+    "flex items-center rounded-xl transition-all duration-300 backdrop-blur-md border border-white/20 shadow-lg";
 
-  // Clases específicas para tarjeta desbloqueada (efecto vidrio claro)
-  const unlockedClasses =
-    "backdrop-blur-xs border border-white shadow-lg hover:bg-white/80";
+  // Clases para la tarjeta desbloqueada
+  const unlockedClasses = "hover:bg-white/20";
 
-  // Clases para tarjeta bloqueada (efecto vidrio más opaco)
-  const lockedClasses =
-    "backdrop-blur-xs border border-white cursor-not-allowed";
+  // Clases para la tarjeta bloqueada
+  const lockedClasses = "cursor-not-allowed";
+
+  // Usamos el mismo truco que en el componente del docente
+  const videoPreviewUrl = `${clase.video_url}#t=2`;
+  console.log("preview video", videoPreviewUrl);
 
   return (
+    // El Link ahora apunta a la clase específica: /clases/ID_DE_LA_CLASE
     <Link
       href={isLocked ? "#" : `/clases/${ruta.id}`}
+      // Hacemos que la tarjeta bloqueada no sea "clickeable" visualmente
       className={`${baseClasses} ${isLocked ? lockedClasses : unlockedClasses}`}
+      style={{ pointerEvents: isLocked ? "none" : "auto" }} // Previene el click en JS
     >
-      <div className="flex items-center">
-        <div
-          className={`mr-4 p-2 rounded-full ${
-            isLocked ? "bg-gray-500/30" : "bg-blue-500/30"
+      {/* --- CONTENEDOR DE LA VISTA PREVIA --- */}
+      <div className="flex-shrink-0 w-32 h-20 rounded-md overflow-hidden bg-black/30 flex items-center justify-center mr-4 shadow-inner">
+        {isLocked ? (
+          // Si está bloqueada, mostramos un ícono grande
+          <LockClosedIcon className="h-8 w-8 text-white/50" />
+        ) : (
+          // Si está desbloqueada, mostramos el video
+          <video
+            src={videoPreviewUrl}
+            className="w-full h-full object-cover"
+            preload="metadata" // Muy importante para el rendimiento
+            muted
+            playsInline
+          >
+            Tu navegador no soporta vistas previas de video.
+          </video>
+        )}
+      </div>
+
+      {/* --- CONTENEDOR DEL TEXTO --- */}
+      <div className="flex-grow">
+        <h3
+          className={`font-semibold px-3 ${
+            isLocked ? "text-slate-300" : "text-slate-800"
           }`}
         >
-          {isLocked ? (
-            <LockClosedIcon className="h-6 w-6 text-white/70" />
-          ) : (
-            <PlayCircleIcon className="h-6 w-6 text-blue-500" />
-          )}
-        </div>
-        <div>
-          {/* -> Texto con mejor contraste sobre el fondo de vidrio */}
-          <h3
-            className={`font-semibold ${
-              isLocked ? "text-slate-300" : "text-slate-800"
-            }`}
-          >
-            {clase.titulo}
-          </h3>
-          <p
-            className={`text-sm ${
-              isLocked ? "text-slate-400" : "text-slate-600"
-            }`}
-          >
-            {clase.duracion || "10 min"}
-          </p>
-        </div>
+          {clase.titulo}
+        </h3>
+        <p
+          className={`text-sm px-3 ${
+            isLocked ? "text-slate-400" : "text-slate-600"
+          }`}
+        >
+          {clase.duracion || "10 min"}
+        </p>
       </div>
+
+      {/* --- INDICADOR DE ACCIÓN (DERECHA) --- */}
       {!isLocked && (
-        <span className="text-sm font-medium text-blue-500">Empezar</span>
+        <span className="ml-4 p-3 text-sm font-medium text-blue-500 flex-shrink-0">
+          Empezar
+        </span>
       )}
     </Link>
   );
 };
-
 // --- Componente principal de la página ---
 export default function RutaDetallePage() {
   const router = useRouter();
@@ -93,6 +109,7 @@ export default function RutaDetallePage() {
       fetchClases();
     } else if (router.isReady) {
       // ... Lógica de fallback ...
+      console.log();
       setIsLoading(false);
     }
   }, [router.isReady, router.query, supabase]);
@@ -151,7 +168,7 @@ export default function RutaDetallePage() {
                   <ClaseItem
                     key={clase.id} // Corregido: La key debe ser única para el elemento, como clase.id
                     ruta={rutaData} // Pasamos la ruta completa para el contexto
-                    clase={clasesData} // Corregido: Pasar el objeto 'clase' en lugar de 'rutaData'
+                    clase={clase} // Corregido: Pasar el objeto 'clase' en lugar de 'rutaData'
                     isLocked={index > 0} // La primera clase (índice 0) está desbloqueada
                   />
                 ))}

@@ -255,7 +255,7 @@ export default function SubirClaseDrawer({
             className={`p-3 rounded-md text-sm text-center ${
               feedback.type === "success"
                 ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
+                : "bg-yellow-100 text-black"
             }`}
           >
             {feedback.message}

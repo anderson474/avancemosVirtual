@@ -21,10 +21,7 @@ export default function SlidebarAlumno({ nombreUsuario, onLogout }) {
   ];
 
   return (
-    <aside
-      className="w-52 bg-gradient-to-br from-slate-400 from-10% to-white 
-        to-40% shadow-xl flex flex-col h-screen border-r border-gray-200"
-    >
+    <aside className="w-52 shadow-xl backdrop-blur-lg flex flex-col h-screen border-r border-gray-200">
       <div className="p-6 text-center border-gray-100">
         <Image
           src="/LOGO AVANCEMOS.png"
