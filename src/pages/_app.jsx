@@ -1,8 +1,8 @@
 // src/pages/_app.jsx
-import { useState } from 'react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import '../styles/globals.css';
+import { useState } from "react";
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { SessionContextProvider } from "@supabase/auth-helpers-react";
+import "../styles/globals.css";
 
 function MyApp({ Component, pageProps }) {
   // Crea el cliente UNA SOLA VEZ usando la función correcta para el Pages Router.

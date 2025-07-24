@@ -1,44 +1,71 @@
 // src/pages/Dashboard/alumno.jsx
 import { useRouter } from "next/router";
 import { useAlumnoDashboard } from "@/hooks/useAlumnoDashboard";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import {
+  useSessionContext,
+  useSupabaseClient,
+} from "@supabase/auth-helpers-react";
+import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
 import SlidebarAlumno from "@components/dashboard/alumno/slidebarAlumno";
 import RutaAprendizajeCard from "@components/dashboard/alumno/rutaAprendizajeCard";
 import Header from "@components/dashboard/alumno/header";
-//import Lottie from 'lottie-react';
-//import loading  from "@public/animation/loading.json"
 
-// La lógica principal del dashboard ahora puede asumir que el usuario SIEMPRE existe.
 function AlumnoDashboard() {
+  console.log("🖥️ [AlumnoDashboard] Componente renderizándose...");
+
   const router = useRouter();
-  // El hook ahora se llamará sabiendo que hay un usuario.
-  const { dashboardData, isLoading, isError } = useAlumnoDashboard();
+
+  const { isLoading: isSessionLoading } = useSessionContext();
+  const {
+    dashboardData,
+    isLoading: isDashboardDataLoading,
+    isError,
+  } = useAlumnoDashboard();
+
+  // Log de estados en cada render
+  console.log("  - Estado de sesión:", { isSessionLoading });
+  console.log("  - Estado de datos:", { isDashboardDataLoading });
+  console.log("  - Datos recibidos:", dashboardData); // Log para ver si los datos llegan
+
   const supabase = useSupabaseClient();
 
   const handleLogout = async () => {
+    console.log("🖥️ [AlumnoDashboard] Ejecutando handleLogout...");
     await supabase.auth.signOut();
-    // La redirección después del logout ahora es manejada por el AuthGuard,
-    // pero es bueno tenerla aquí también por si acaso.
     router.push("/avancemosDigital");
   };
 
-  // Este estado de carga ahora es más fiable.
-  // Se mostrará solo DESPUÉS de que AuthGuard confirme el usuario.
-  if (isLoading || !dashboardData) {
+  const isLoading = isSessionLoading || isDashboardDataLoading;
+  console.log(
+    "  - ¿Está cargando en total? (isSessionLoading || isDashboardDataLoading):",
+    isLoading
+  );
+
+  if (isLoading) {
+    console.log("  ➡️ Mostrando pantalla de CARGA (isLoading es true)");
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
-        {/* <div className="w-64 h-64 mt-4">
-          <Lottie 
-            animationData={loading} 
-            loop={false} // Puedes ponerlo en false si quieres que se reproduzca una sola vez
-          />
-        </div> */}
         <p className="text-gray-600 animate-pulse">Cargando tu dashboard...</p>
       </div>
     );
   }
 
+  // Si ya no está cargando, pero no hay datos, algo raro pasó.
+  if (!dashboardData) {
+    console.log(
+      "  ➡️ Mostrando pantalla de CARGA (isLoading es false, pero !dashboardData es true)"
+    );
+    return (
+      <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
+        <p className="text-gray-600">
+          Verificando sesión... (No hay datos después de cargar)
+        </p>
+      </div>
+    );
+  }
+
   if (isError) {
+    console.error("  ➡️ Mostrando pantalla de ERROR", isError);
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <p className="text-red-600">
@@ -48,9 +75,9 @@ function AlumnoDashboard() {
     );
   }
 
+  console.log("  ✅ Mostrando DASHBOARD COMPLETO");
   const { nombreAlumno, avatarUrl, rutasAsignadas } = dashboardData;
 
-  // ... (el resto de tu JSX es idéntico)
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <SlidebarAlumno nombreUsuario={nombreAlumno} onLogout={handleLogout} />
@@ -90,7 +117,32 @@ function AlumnoDashboard() {
   );
 }
 
-// 2. Envuelve tu componente exportado con el AuthGuard
 export default function AlumnoPage() {
   return <AlumnoDashboard />;
 }
+
+// Logs en el guardián del lado del servidor
+export const getServerSideProps = async (ctx) => {
+  console.log("📄 [getServerSideProps] Iniciando en el servidor...");
+  const supabase = createServerSupabaseClient(ctx);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    console.log("  - No se encontró sesión. Redirigiendo a /avancemosDigital");
+    return {
+      redirect: {
+        destination: "/avancemosDigital", // Asegúrate que esta es tu página de login
+        permanent: false,
+      },
+    };
+  }
+
+  console.log("  - Sesión encontrada para el usuario:", session.user.id);
+  return {
+    props: {
+      initialSession: session,
+    },
+  };
+};
