@@ -110,11 +110,13 @@ export default function EliminarRutaDrawer({
 
   return (
     <div
-      className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${
+      className={`fixed top-5 right-0 w-full max-w-md backdrop-blur-sm shadow-lg rounded-l-2xl z-50
+      max-h-screen overflow-y-auto
+      transform transition-transform duration-300 ease-in-out ${
         visible ? "translate-x-0" : "translate-x-full"
       }`}
     >
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+      <div className="sticky top-0 z-10 flex justify-between items-center p-4 border-b border-gray-200 backdrop-blur-sm">
         <h2 className="text-xl font-bold text-gray-800">Eliminar Rutas</h2>
         <button
           onClick={onClose}
@@ -175,7 +177,7 @@ export default function EliminarRutaDrawer({
                 <button
                   onClick={() => handleEliminarRuta(ruta)}
                   disabled={deletingId === ruta.id}
-                  className="w-full text-sm bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="w-full text-sm bg-red-600 text-white px-4 py-2 rounded-md hover:shadow-xl/30 hover:bg-white/20 hover:text-red-500 cursor-pointer transition-colors font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   {deletingId === ruta.id
                     ? "Eliminando..."
