@@ -1,8 +1,11 @@
-// src/hooks/useAlumnoDashboard.js
 import useSWR from "swr";
-import { useSupabaseClient, useUser } from "@supabase/auth-helpers-react";
+// CAMBIO 1: Se importa `useSessionContext` en lugar de `useUser`.
+import {
+  useSupabaseClient,
+  useSessionContext,
+} from "@supabase/auth-helpers-react";
 
-// El fetcher con logs detallados
+// El fetcher no necesita ningún cambio. Es robusto y está bien escrito.
 const fetcher = async ([supabase, user]) => {
   console.group("🚀 [Fetcher] Iniciando búsqueda de datos...");
   console.log("  - Recibido user.id:", user.id);
@@ -25,7 +28,7 @@ const fetcher = async ([supabase, user]) => {
       perfilError,
       perfilStatus,
     });
-    if (perfilError && perfilStatus !== 406) throw perfilError; // 406 es un status normal si no encuentra nada con maybeSingle
+    if (perfilError && perfilStatus !== 406) throw perfilError;
     if (!perfil) throw new Error("No se encontró un perfil para este usuario.");
 
     // --- 2. Obtener URL pública del avatar ---
@@ -74,7 +77,6 @@ const fetcher = async ([supabase, user]) => {
 
     // --- Combinar todo y formatear la salida ---
     const formattedRutas = rutas.map((ruta, index) => {
-      // ... (tu lógica para formatear)
       return {
         id: ruta.id,
         titulo: ruta.nombre,
@@ -82,7 +84,6 @@ const fetcher = async ([supabase, user]) => {
         progreso: progressResults[index]?.data
           ? Math.round(progressResults[index].data)
           : 0,
-        // ...
       };
     });
 
@@ -99,46 +100,68 @@ const fetcher = async ([supabase, user]) => {
   } catch (error) {
     console.error("🔥 [Fetcher] Error durante la obtención de datos:", error);
     console.groupEnd();
-    throw error; // Propaga el error para que SWR lo capture
+    throw error;
   }
 };
 
-// --- El Hook personalizado con logs ---
+// --- El Hook personalizado con la solución ---
 export function useAlumnoDashboard() {
   console.log("🎣 [Hook] Se está ejecutando useAlumnoDashboard.");
   const supabase = useSupabaseClient();
-  const user = useUser();
+
+  // CAMBIO 2: Usamos useSessionContext para obtener el estado de carga de la sesión.
+  const { session, isLoading: isSessionLoading } = useSessionContext();
+
+  // El usuario se extrae de la sesión una vez que está disponible.
+  const user = session?.user;
 
   console.log(
-    "  - Valor de useUser():",
-    user ? `Usuario con ID ${user.id}` : "null"
+    "  - Estado de la sesión:",
+    isSessionLoading
+      ? "Cargando sesión..."
+      : user
+      ? `Sesión activa para user.id ${user.id}`
+      : "Sin sesión"
   );
 
-  const key = user ? [supabase, user] : null;
+  // CAMBIO 3: La clave de SWR ahora solo se establece si la sesión NO está cargando Y el usuario existe.
+  // Esto evita que el fetcher se ejecute prematuramente.
+  const key = !isSessionLoading && user ? [supabase, user] : null;
+
   console.log(
     "  - 🔑 Key de SWR:",
-    key ? `Establecida con user.id: ${user.id}` : "null (esperando usuario)"
+    key
+      ? `Establecida con user.id: ${user.id}`
+      : "null (esperando sesión o usuario)"
   );
 
-  const { data, error, isLoading } = useSWR(key, fetcher, {
-    revalidateOnFocus: false, // Dejemos esto en false para replicar el problema original
+  // CAMBIO 4: Renombramos `isLoading` a `isSWRLoading` para evitar conflictos.
+  const {
+    data,
+    error,
+    isLoading: isSWRLoading,
+  } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
     dedupingInterval: 400000,
   });
+
+  // CAMBIO 5: El estado de carga general de nuestro hook es verdadero si la sesión está cargando O si SWR está cargando.
+  const isLoading = isSessionLoading || isSWRLoading;
 
   console.log("  - Estado de SWR:", {
     data: !!data,
     error: !!error,
-    isLoading,
+    isSWRLoading,
   });
   console.log("  - Devolviendo valores del hook:", {
     dashboardData: data,
-    isLoading,
+    isLoading, // Devolvemos el estado de carga combinado.
     isError: error,
   });
 
   return {
     dashboardData: data,
-    isLoading,
+    isLoading, // Este es el valor que tus componentes deben usar para mostrar un spinner.
     isError: error,
   };
 }

@@ -61,7 +61,7 @@ export default function Header({ nombreUsuario, avatarUrl, onLogout }) {
           leaveTo="transform opacity-0 scale-95"
         >
           <Menu.Items
-            className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 
+            className="absolute right-0 top-0 mt-0 w-56 origin-top-right divide-y divide-gray-100 
           rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
           >
             <div className="px-3 py-2 text-sm text-gray-500">

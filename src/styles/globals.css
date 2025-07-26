@@ -33,3 +33,30 @@ body {
   --color-naranja:#f39327;
   --color-violeta:#7f5da4
 }
+
+/* 
+  ==========================================================================
+  FIX PARA TAILWIND TYPOGRAPHY (PROSE) - VERSIÓN COMPLETA
+  ==========================================================================
+  Este bloque anula el "reseteo" de estilos que Tailwind Preflight aplica
+  a los encabezados Y A LAS LISTAS. Al ser más específico (.prose h1, .prose ul),
+  esta regla tiene prioridad y permite que el plugin de tipografía
+  aplique sus propios estilos dentro del editor.
+*/
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-size: revert;
+  font-weight: revert;
+}
+
+/* --- NUEVA REGLA AÑADIDA --- */
+.prose ul,
+.prose ol {
+  list-style: revert; /* Devuelve las viñetas/números */
+  padding: revert;    /* Devuelve la sangría (padding-left) */
+  margin: revert;     /* Devuelve los márgenes por defecto */
+}

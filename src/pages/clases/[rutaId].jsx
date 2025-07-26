@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSupabaseClient, useUser } from "@supabase/auth-helpers-react";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs"; // Para proteger la ruta
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import useSWR from "swr";
 import { ArrowLeftIcon } from "@heroicons/react/24/solid";
 
-// Importa tus componentes de UI
 import ClaseSidebar from "@components/dashboard/alumno/claseSidebar";
 import VideoPlayer from "@components/dashboard/alumno/videoPlayer";
 import InfoTabs from "@components/dashboard/alumno/infoTabs";
@@ -15,35 +15,99 @@ import ChatIA from "@components/dashboard/alumno/chatIA";
 import Lottie from "lottie-react";
 import loading from "@public/animation/loading.json";
 
+// --- FUNCIÓN FETCHER PARA SWR ---
+// Esta función se encarga de obtener TODOS los datos necesarios para la página en paralelo.
+const fetcher = async ([supabase, user, rutaId]) => {
+  // Usamos Promise.all para ejecutar las consultas de forma concurrente, mejorando la velocidad.
+  const [vistasResult, rutaResult, progresoResult] = await Promise.all([
+    // 1. Obtiene los IDs de las clases que el alumno ya ha visto.
+    supabase.from("clases_vistas").select("clase_id").eq("alumno_id", user.id),
+
+    // 2. Obtiene la información de la ruta y su lista completa de clases.
+    supabase
+      .from("rutas")
+      .select("nombre, clases(id, titulo, descripcion, video_url)")
+      .eq("id", rutaId)
+      .single(),
+
+    // 3. Obtiene el progreso específico de este alumno en esta ruta, incluyendo la última clase que vio.
+    supabase
+      .from("rutas_alumnos")
+      .select("ultima_clase_vista_id")
+      .eq("alumno_id", user.id)
+      .eq("ruta_id", rutaId)
+      .maybeSingle(),
+  ]);
+
+  // Desestructuramos los resultados para manejarlos más fácilmente.
+  const { data: vistasData } = vistasResult;
+  const { data: rutaData, error: rutaError } = rutaResult;
+  const { data: progresoData } = progresoResult;
+
+  // Si la consulta principal (la de la ruta) falla, lanzamos un error que SWR capturará.
+  if (rutaError) {
+    throw new Error(
+      "No se pudo cargar el contenido. Es posible que no tengas acceso o la ruta no exista."
+    );
+  }
+
+  // Formateamos los datos para devolver un objeto limpio y fácil de usar.
+  const clasesVistasIds = vistasData ? vistasData.map((v) => v.clase_id) : [];
+  const ultimaClaseId = progresoData
+    ? progresoData.ultima_clase_vista_id
+    : null;
+
+  return {
+    rutaInfo: { titulo: rutaData.nombre },
+    clases: rutaData.clases || [],
+    clasesVistasIds,
+    ultimaClaseId,
+  };
+};
+
+// --- COMPONENTE PRINCIPAL DE LA PÁGINA ---
 export default function InterfazClasePage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
   const { rutaId } = router.query;
 
-  const [rutaInfo, setRutaInfo] = useState(null);
-  const [clases, setClases] = useState([]);
+  // SWR maneja el fetching, cacheo y estado de carga/error.
+  const key = rutaId && user && supabase ? [supabase, user, rutaId] : null;
+  const { data, error, isLoading } = useSWR(key, fetcher);
+
+  // 'claseActiva' es el único estado que realmente necesitamos manejar manualmente.
   const [claseActiva, setClaseActiva] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [clasesVistasIds, setClasesVistasIds] = useState([]);
 
-  const handleNextClase = () => {
-    const currentIndex = clases.findIndex((c) => c.id === claseActiva.id);
-    if (currentIndex !== -1 && currentIndex < clases.length - 1) {
-      const siguienteClase = clases[currentIndex + 1];
-      handleSelectClase(siguienteClase); // Reutilizamos la función que ya guarda el progreso
-    } else {
-      // Opcional: Mostrar un mensaje de "¡Has completado la ruta!"
-      alert("¡Felicidades, has terminado todas las clases de esta ruta!");
-      router.push("/Dashboard/alumno");
+  // Este efecto se encarga de establecer la clase activa correcta cuando los datos cargan.
+  useEffect(() => {
+    // Si no han cargado los datos de SWR, o si ya hemos establecido una clase, no hacemos nada.
+    if (!data || claseActiva) return;
+
+    const clasesDisponibles = data.clases;
+    if (clasesDisponibles.length === 0) return;
+
+    let claseASeleccionar = null;
+
+    // Intentamos encontrar la última clase guardada en el progreso del alumno.
+    if (data.ultimaClaseId) {
+      claseASeleccionar = clasesDisponibles.find(
+        (clase) => clase.id === data.ultimaClaseId
+      );
     }
-  };
 
+    // Si no había una clase guardada o no se encontró, usamos la primera de la lista.
+    if (!claseASeleccionar) {
+      claseASeleccionar = clasesDisponibles[0];
+    }
+
+    setClaseActiva(claseASeleccionar);
+  }, [data, claseActiva]);
+
+  // --- MANEJADORES DE EVENTOS ---
   const handleSelectClase = async (clase) => {
     setClaseActiva(clase);
-
-    // Si tenemos un usuario, guardamos esta clase como la última vista para esta ruta
+    // Guarda el progreso en la base de datos.
     if (user && rutaId && clase) {
       await supabase
         .from("rutas_alumnos")
@@ -53,79 +117,26 @@ export default function InterfazClasePage() {
     }
   };
 
-  useEffect(() => {
-    // Si no hay rutaId o usuario, no hacer nada.
-    if (!rutaId || !user) return;
+  const handleNextClase = () => {
+    // Asegúrate de que tenemos los datos de las clases antes de continuar.
+    if (!data || !data.clases) return;
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
+    const currentIndex = data.clases.findIndex((c) => c.id === claseActiva.id);
+    if (currentIndex !== -1 && currentIndex < data.clases.length - 1) {
+      const siguienteClase = data.clases[currentIndex + 1];
+      handleSelectClase(siguienteClase);
+    } else {
+      alert("¡Felicidades, has terminado todas las clases de esta ruta!");
+      router.push("/Dashboard/alumno");
+    }
+  };
 
-      const { data: vistasData } = await supabase
-        .from("clases_vistas")
-        .select("clase_id")
-        .eq("alumno_id", user.id);
-
-      if (vistasData) {
-        setClasesVistasIds(vistasData.map((v) => v.clase_id));
-      }
-      // 1. Obtener la información de la ruta y todas sus clases asociadas.
-      // La seguridad se maneja con Políticas de Seguridad (RLS) en Supabase.
-      const { data, error: fetchError } = await supabase
-        .from("rutas")
-        .select(
-          `
-          nombre,
-          clases (
-            id,
-            titulo,
-            descripcion,
-            video_url
-          )
-        `
-        )
-        .eq("id", rutaId)
-        .single(); // Esperamos una sola ruta.
-
-      if (fetchError) {
-        console.error("Error al obtener los datos de la ruta:", fetchError);
-        setError(
-          "No se pudo cargar el contenido. Es posible que no tengas acceso a esta ruta o que no exista."
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      // Ordenar las clases si es necesario (ej. por un campo 'orden' o 'created_at')
-      // Aquí asumimos que vienen en el orden correcto desde la BD.
-      const sortedClases = data.clases || [];
-
-      setRutaInfo({ titulo: data.nombre });
-      setClases(sortedClases);
-
-      // Establecer la primera clase como activa por defecto al cargar la página.
-      if (sortedClases.length > 0) {
-        setClaseActiva(sortedClases[0]);
-      } else {
-        // Manejar el caso de que una ruta no tenga clases.
-        setClaseActiva(null);
-      }
-
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [rutaId, user, supabase]); // Dependencias del efecto.
-
-  // --- Vistas de Carga y Error ---
+  // --- RENDERIZADO CONDICIONAL: CARGA Y ERROR ---
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
         <div className="w-64 h-64 mt-4">
-          <Lottie
-            animationData={loading}
-            loop={false} // Puedes ponerlo en false si quieres que se reproduzca una sola vez
-          />
+          <Lottie animationData={loading} loop={true} />
         </div>
         <p className="text-gray-600 animate-pulse">
           Cargando contenido del curso...
@@ -137,7 +148,7 @@ export default function InterfazClasePage() {
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-100 text-center p-4">
-        <p className="text-red-500 font-semibold text-lg">{error}</p>
+        <p className="text-red-500 font-semibold text-lg">{error.message}</p>
         <button
           onClick={() => router.push("/Dashboard/alumno")}
           className="mt-6 cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -148,21 +159,18 @@ export default function InterfazClasePage() {
     );
   }
 
-  // --- Layout Principal de la Página ---
+  // --- RENDERIZADO PRINCIPAL DEL DASHBOARD DE LA CLASE ---
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* 1. Barra Lateral con la lista de clases */}
       <ClaseSidebar
-        rutaTitulo={rutaInfo?.titulo}
-        clases={clases}
+        rutaTitulo={data?.rutaInfo?.titulo}
+        clases={data?.clases || []}
         claseActivaId={claseActiva?.id}
         onSelectClase={handleSelectClase}
-        clasesVistasIds={clasesVistasIds}
+        clasesVistasIds={data?.clasesVistasIds || []}
       />
 
-      {/* 2. Contenedor principal (Header + Main) que ocupa el resto del espacio */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 2a. Header fijo para la navegación y título de la clase */}
         <header className="flex-shrink-0 flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
           <button
             onClick={() => router.push("/Dashboard/alumno")}
@@ -171,15 +179,12 @@ export default function InterfazClasePage() {
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Volver al Panel
           </button>
-
           {claseActiva && (
             <h1 className="text-xl font-bold text-gray-800 truncate ml-4 hidden md:block">
               {claseActiva.titulo}
             </h1>
           )}
-
-          {/* Espacio reservado a la derecha para futuras acciones (ej. botón de completar clase) */}
-          <div className="w-40"></div>
+          <div className="w-40 hidden md:block"></div>
           <div className="flex justify-end">
             <button
               onClick={handleNextClase}
@@ -190,12 +195,9 @@ export default function InterfazClasePage() {
           </div>
         </header>
 
-        {/* 2b. Área de contenido principal con su propio scroll */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {claseActiva ? (
-            // Contenedor que centra el contenido y limita su ancho máximo para mejor legibilidad
             <div className="max-w-5xl mx-auto">
-              {/* Contenedor del video con aspect-ratio para tamaño consistente */}
               <div className="w-full aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-xl mb-8">
                 <VideoPlayer
                   videoUrl={claseActiva.video_url}
@@ -204,22 +206,19 @@ export default function InterfazClasePage() {
                   onVideoEnded={handleNextClase}
                 />
               </div>
-              {/*Aqui esta el chat de IA */}
               <div className="mt-8">
                 <ChatIA claseId={claseActiva.id} />
               </div>
-              {/* Pestañas de información (descripción, recursos, comentarios) */}
               <InfoTabs claseId={claseActiva.id} />
             </div>
           ) : (
-            // Mensaje que se muestra si la ruta no tiene clases
             <div className="flex flex-col justify-center items-center h-full text-center bg-white rounded-lg shadow-md p-8">
               <h2 className="text-2xl font-bold text-gray-800">
                 ¡Ruta en construcción!
               </h2>
               <p className="text-gray-500 mt-2 max-w-md">
                 Esta ruta de aprendizaje aún no tiene clases disponibles.
-                ¡Vuelve pronto para comenzar tu aventura de conocimiento!
+                ¡Vuelve pronto!
               </p>
             </div>
           )}
@@ -229,26 +228,22 @@ export default function InterfazClasePage() {
   );
 }
 
-// --- Protección de la Ruta en el Servidor ---
-// Esto se ejecuta antes de que la página se renderice.
+// --- PROTECCIÓN DE LA RUTA EN EL SERVIDOR (SIN CAMBIOS) ---
 export const getServerSideProps = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
-
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Si no hay sesión, redirigir al usuario a la página de login.
   if (!session) {
     return {
       redirect: {
-        destination: "/avancemosDigital", // Asegúrate que esta es tu página de login
+        destination: "/avancemosDigital",
         permanent: false,
       },
     };
   }
 
-  // Si hay sesión, permitir que la página se renderice.
   return {
     props: {
       initialSession: session,

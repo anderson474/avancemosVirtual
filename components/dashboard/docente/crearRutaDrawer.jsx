@@ -74,7 +74,7 @@ export default function CrearRutaDrawer({ visible, onClose, onRutaCreada }) {
 
   return (
     <div
-      className={`fixed top-5 right-0 w-full max-w-md backdrop-blur-xs 
+      className={`fixed top-5 right-0 w-full max-w-md bg-white 
         border border-white shadow-lg z-50 rounded-2xl transform transition-transform duration-300 ease-in-out ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}

@@ -27,17 +27,65 @@ export default function EliminarClaseDrawer({
   const handleEliminarClase = async (id) => {
     if (
       !window.confirm(
-        "¿Estás seguro de que quieres eliminar esta clase? Esta acción no se puede deshacer."
+        "¿Estás seguro de que quieres eliminar esta clase? Se borrarán el video y todos sus recursos asociados. Esta acción no se puede deshacer."
       )
     ) {
       return;
     }
-    const { error } = await supabase.from("clases").delete().eq("id", id);
 
-    if (error) {
-      alert("Error al eliminar la clase: " + error.message);
-    } else {
+    try {
+      // PASO 1: ELIMINAR LOS ARCHIVOS DE SUPABASE STORAGE
+      const bucketId = "videos-clases";
+      const folderPath = String(id); // La carpeta se llama como el ID de la clase
+
+      // 1a: Listar todos los archivos en la carpeta de la clase
+      const { data: files, error: listError } = await supabase.storage
+        .from(bucketId)
+        .list(folderPath);
+
+      if (listError) {
+        // Si hay un error listando (ej: la carpeta no existe), lo mostramos pero podríamos continuar
+        console.warn(
+          `No se pudo listar la carpeta ${folderPath} en Storage. Puede que ya estuviera vacía o eliminada. Error:`,
+          listError.message
+        );
+      }
+
+      // 1b: Si se encontraron archivos, eliminarlos
+      if (files && files.length > 0) {
+        const filePaths = files.map((file) => `${folderPath}/${file.name}`);
+        const { error: removeError } = await supabase.storage
+          .from(bucketId)
+          .remove(filePaths);
+
+        if (removeError) {
+          // Si la eliminación de archivos falla, detenemos todo el proceso
+          throw new Error(
+            `Error al eliminar los archivos de Storage: ${removeError.message}`
+          );
+        }
+      }
+
+      // PASO 2: ELIMINAR EL REGISTRO DE LA BASE DE DATOS
+      // Esto también debería eliminar los embeddings y recursos en cascada si tienes 'ON DELETE CASCADE' configurado.
+      const { error: dbError } = await supabase
+        .from("clases")
+        .delete()
+        .eq("id", id);
+
+      if (dbError) {
+        // Si la eliminación de la base de datos falla, lanzamos un error
+        throw new Error(
+          `Error al eliminar la clase de la base de datos: ${dbError.message}`
+        );
+      }
+
+      // PASO 3: ÉXITO TOTAL
+      // Notificamos al componente padre para que actualice la UI
       onClaseEliminada(id);
+    } catch (error) {
+      console.error("Error completo en el proceso de eliminación:", error);
+      alert(error.message);
     }
   };
 
@@ -45,8 +93,9 @@ export default function EliminarClaseDrawer({
 
   return (
     <div
-      className={`fixed top-5 right-0 w-full max-w-md backdrop-blur-sm shadow-lg rounded-l-2xl z-50
-      max-h-screen overflow-y-auto
+      className={`fixed top-5 right-0 w-full max-w-md bg-white shadow-lg rounded-l-2xl z-50
+      max-h-screen
+      flex flex-col
       transform transition-transform duration-300 ease-in-out ${
         visible ? "translate-x-0" : "translate-x-full"
       }`}
@@ -61,7 +110,10 @@ export default function EliminarClaseDrawer({
         </button>
       </div>
 
-      <div className="p-4 space-y-6 overflow-y-auto h-[calc(100%-65px)]">
+      <div
+        className="p-4 space-y-6 overflow-y-auto flex-1
+      "
+      >
         {nombresDeRutas.length > 0 ? (
           nombresDeRutas.map((nombreRuta) => (
             <div key={nombreRuta} className="space-y-3">

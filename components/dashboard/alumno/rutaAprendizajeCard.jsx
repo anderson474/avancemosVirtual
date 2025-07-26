@@ -35,9 +35,9 @@ export default function RutaAprendizajeCard({ ruta }) {
               {ruta.progreso}%
             </span>
           </div>
-          <div className="w-full backdrop-blur-xs rounded-full h-2.5 overflow-hidden">
+          <div className="w-full bg-white rounded-full h-2.5 overflow-hidden">
             <motion.div
-              className="bg-slate-200 rounded-full h-2.5 overflow-hidden"
+              className="bg-verde rounded-full h-2.5 overflow-hidden"
               initial={{ width: 0 }}
               animate={{ width: `${ruta.progreso}%` }}
               transition={{ duration: 1 }}
