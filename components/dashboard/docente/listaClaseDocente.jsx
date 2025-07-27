@@ -6,8 +6,8 @@ import ClasePreviewModal from "@components/dashboard/docente/clasePreviewModal";
 
 // 1. Aceptamos AMBAS props: clases y rutas
 export default function ListaClasesDocente({ clases, rutas }) {
-  console.log("Clases recibidas:", clases);
-  console.log("Rutas recibidas:", rutas);
+  //console.log("Clases recibidas:", clases);
+  //console.log("Rutas recibidas:", rutas);
   const [claseEnPreview, setClaseEnPreview] = useState(null);
 
   // 2. LÓGICA CORREGIDA Y EFICIENTE

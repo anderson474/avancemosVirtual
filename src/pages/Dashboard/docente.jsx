@@ -86,7 +86,6 @@ export async function getServerSideProps(ctx) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // ----> AÑADE ESTE LOG <----
   console.log(
     "SESSION EN EL SERVIDOR (getServerSideProps):",
     session ? `Usuario ${session.user.email}` : "SESIÓN NULA"

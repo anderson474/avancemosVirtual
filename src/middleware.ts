@@ -13,7 +13,7 @@ export async function middleware(req: NextRequest) {
   
   // ----> LOG PARA LA SESIÓN <----
   // JSON.stringify es para ver el objeto completo de forma legible
-  console.log('Sesión obtenida:', JSON.stringify(session, null, 2))
+  //console.log('Sesión obtenida:', JSON.stringify(session, null, 2))
 
   if (!session) {
     console.log('>>> NO HAY SESIÓN. Redirigiendo a /login...')

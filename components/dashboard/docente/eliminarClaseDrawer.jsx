@@ -34,55 +34,25 @@ export default function EliminarClaseDrawer({
     }
 
     try {
-      // PASO 1: ELIMINAR LOS ARCHIVOS DE SUPABASE STORAGE
-      const bucketId = "videos-clases";
-      const folderPath = String(id); // La carpeta se llama como el ID de la clase
+      // --- INICIO DE LA LÓGICA MODIFICADA ---
+      // PASO 1: LLAMAR A NUESTRA API SEGURA PARA ELIMINAR LA CLASE
+      const response = await fetch("/api/clases/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ claseId: id }),
+      });
 
-      // 1a: Listar todos los archivos en la carpeta de la clase
-      const { data: files, error: listError } = await supabase.storage
-        .from(bucketId)
-        .list(folderPath);
-
-      if (listError) {
-        // Si hay un error listando (ej: la carpeta no existe), lo mostramos pero podríamos continuar
-        console.warn(
-          `No se pudo listar la carpeta ${folderPath} en Storage. Puede que ya estuviera vacía o eliminada. Error:`,
-          listError.message
-        );
+      if (!response.ok) {
+        // Si la API devuelve un error, lo mostramos
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al eliminar la clase.");
       }
 
-      // 1b: Si se encontraron archivos, eliminarlos
-      if (files && files.length > 0) {
-        const filePaths = files.map((file) => `${folderPath}/${file.name}`);
-        const { error: removeError } = await supabase.storage
-          .from(bucketId)
-          .remove(filePaths);
-
-        if (removeError) {
-          // Si la eliminación de archivos falla, detenemos todo el proceso
-          throw new Error(
-            `Error al eliminar los archivos de Storage: ${removeError.message}`
-          );
-        }
-      }
-
-      // PASO 2: ELIMINAR EL REGISTRO DE LA BASE DE DATOS
-      // Esto también debería eliminar los embeddings y recursos en cascada si tienes 'ON DELETE CASCADE' configurado.
-      const { error: dbError } = await supabase
-        .from("clases")
-        .delete()
-        .eq("id", id);
-
-      if (dbError) {
-        // Si la eliminación de la base de datos falla, lanzamos un error
-        throw new Error(
-          `Error al eliminar la clase de la base de datos: ${dbError.message}`
-        );
-      }
-
-      // PASO 3: ÉXITO TOTAL
+      // PASO 2: ÉXITO TOTAL
       // Notificamos al componente padre para que actualice la UI
       onClaseEliminada(id);
+
+      // --- FIN DE LA LÓGICA MODIFICADA ---
     } catch (error) {
       console.error("Error completo en el proceso de eliminación:", error);
       alert(error.message);

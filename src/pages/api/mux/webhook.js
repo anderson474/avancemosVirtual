@@ -6,17 +6,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- ESTE ARCHIVO YA NO NECESITA LA LIBRERÍA DE MUX ---
-// import Mux from "@mux/mux-node";
-// import { buffer } from "micro";
-
-// Volvemos a activar el bodyParser de Next.js, ya que no leeremos el raw body
-// export const config = {
-//   api: {
-//     bodyParser: false,
-//   },
-// };
-
 export default async function handler(req, res) {
   const { method, body } = req;
 
@@ -35,6 +24,15 @@ export default async function handler(req, res) {
         if (type === "video.asset.ready") {
           const { passthrough: claseId, id: muxAssetId, playback_ids } = data;
           const playbackId = playback_ids?.[0]?.id;
+          if (!playbackId) {
+            console.warn(
+              "  - Webhook ignorado: No se encontró playbackId en el objeto 'data'."
+            );
+            // Respondemos 200 para que Mux no lo reintente.
+            return res.status(200).json({
+              message: "Evento recibido pero ignorado por falta de playbackId.",
+            });
+          }
           console.log(
             `  - Evento 'video.asset.ready' detectado para claseId: '${claseId}'`
           );
@@ -44,21 +42,28 @@ export default async function handler(req, res) {
               "  - Webhook ignorado: Faltan claseId o playbackId en el objeto 'data'."
             );
             // Respondemos 200 para que Mux no lo reintente.
-            return res
-              .status(200)
-              .json({
-                message: "Evento recibido pero ignorado por falta de datos.",
-              });
+            return res.status(200).json({
+              message: "Evento recibido pero ignorado por falta de datos.",
+            });
           }
 
           // 3. ACTUALIZAR SUPABASE Y DISPARAR PROCESAMIENTO
           console.log(
             `[2/3] Actualizando clase ${claseId} con playbackId ${playbackId}...`
           );
-          await supabaseAdmin
+
+          const { error: updateError } = await supabaseAdmin
             .from("clases")
-            .update({ mux_playback_id: playbackId })
+            .update({ mux_playback_id: playbackId, mux_asset_id: muxAssetId })
             .eq("id", claseId);
+
+          // Verificamos explícitamente si hubo un error en la operación de Supabase
+          if (updateError) {
+            console.error("  - ❌ ERROR AL ACTUALIZAR SUPABASE:", updateError);
+            // Lanzamos un error para que el bloque catch principal lo maneje
+            // y Mux pueda reintentar la petición.
+            throw new Error(`Error de Supabase: ${updateError.message}`);
+          }
           console.log("  - ...Clase actualizada en Supabase.");
 
           console.log(
