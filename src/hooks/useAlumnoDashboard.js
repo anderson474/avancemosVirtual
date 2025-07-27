@@ -12,7 +12,7 @@ const fetcher = async ([supabase, user]) => {
 
   try {
     // --- 1. Obtener el perfil del alumno (nombre y avatar) ---
-    console.log("   fetching... 1/4 - Perfil");
+    console.log("   fetching... 1/4 - Perfil, usuario: ", user.id);
     const {
       data: perfil,
       error: perfilError,
