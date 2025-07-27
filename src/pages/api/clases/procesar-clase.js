@@ -4,15 +4,20 @@ import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import Mux from "@mux/mux-node";
 
-// Inicializa los clientes fuera del handler
+// --- INICIALIZACIÓN DE CLIENTES ---
 const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const { Video } = new Mux(
+  process.env.MUX_TOKEN_ID,
+  process.env.MUX_TOKEN_SECRET
+);
 
-// --- FUNCIÓN AUXILIAR PARA OBTENER DURACIÓN (NUEVA) ---
+// --- FUNCIÓN AUXILIAR PARA OBTENER DURACIÓN ---
 const getVideoDuration = (videoPath) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
@@ -27,10 +32,9 @@ const getVideoDuration = (videoPath) => {
   });
 };
 
-// --- FUNCIÓN AUXILIAR PARA DIVIDIR AUDIO (SIN CAMBIOS) ---
+// --- FUNCIÓN AUXILIAR PARA DIVIDIR AUDIO ---
 const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
   return new Promise((resolve, reject) => {
-    // ... (el código de esta función no cambia)
     const chunkPathPrefix = path.join(tempDir, "chunk_");
     const chunkFilePattern = `${chunkPathPrefix}%03d.mp3`;
 
@@ -39,12 +43,12 @@ const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
         "-f",
         "segment",
         "-segment_time",
-        "600",
-        "-vn",
+        "600", // 10 minutos por trozo
+        "-vn", // Sin video
         "-acodec",
         "libmp3lame",
         "-q:a",
-        "2",
+        "2", // Buena calidad
       ])
       .output(chunkFilePattern)
       .on("end", () => {
@@ -62,72 +66,74 @@ const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
   });
 };
 
-// --- HANDLER PRINCIPAL DE LA API (MODIFICADO) ---
+// --- HANDLER PRINCIPAL DE LA API ---
 export default async function handler(req, res) {
+  // 1. VERIFICAR MÉTODO Y AUTORIZACIÓN
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-
-  const { claseId, filePath, bucketId } = req.body;
-  if (!claseId || !filePath || !bucketId) {
-    return res.status(400).json({ error: "Faltan parámetros en la petición." });
+  const authToken = req.headers.authorization?.split(" ")[1];
+  if (authToken !== process.env.PROCESSING_API_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
+  // 2. OBTENER PARÁMETROS DEL BODY
+  const { claseId, muxAssetId } = req.body;
+  if (!claseId || !muxAssetId) {
+    return res
+      .status(400)
+      .json({ error: "Faltan parámetros claseId o muxAssetId." });
+  }
+
+  // 3. PREPARAR ENTORNO TEMPORAL
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "video-processing-"));
   const localVideoPath = path.join(tempDir, "source_video.mp4");
 
   try {
     console.log(
-      `[Clase ID: ${claseId}] Iniciando procesamiento para: ${filePath}`
+      `[Clase ID: ${claseId}] Iniciando procesamiento para Mux Asset ID: ${muxAssetId}`
     );
 
-    // PASO 1: Descargar el video desde Supabase Storage
-    console.log(`⬇️ Descargando video de Storage...`);
-    const { data: fileData, error: downloadError } =
-      await supabaseClient.storage.from(bucketId).download(filePath);
-    if (downloadError) throw downloadError;
-    fs.writeFileSync(localVideoPath, Buffer.from(await fileData.arrayBuffer()));
+    // 4. DESCARGAR VIDEO DESDE MUX
+    console.log(`⬇️ Obteniendo URL de descarga de Mux...`);
+    const playbackIdInfo = await Video.Assets.createPlaybackId(muxAssetId, {
+      policy: "signed",
+    });
+    const downloadUrl = `https://stream.mux.com/${playbackIdInfo.id}/high.mp4`;
+    console.log(`⬇️ Descargando video de: ${downloadUrl}`);
+    const videoResponse = await fetch(downloadUrl);
+    if (!videoResponse.ok)
+      throw new Error(
+        `Failed to download from Mux. Status: ${videoResponse.status}`
+      );
+    fs.writeFileSync(
+      localVideoPath,
+      Buffer.from(await videoResponse.arrayBuffer())
+    );
     console.log(`✅ Video descargado en: ${localVideoPath}`);
 
-    // ===================================================================
-    // PASO 1.5: OBTENER DURACIÓN Y ACTUALIZAR LA BASE DE DATOS (NUEVO)
-    // ===================================================================
-    console.log(`🔎 Obteniendo duración del video...`);
+    // 5. OBTENER DURACIÓN Y ACTUALIZAR DB
     const durationInSeconds = await getVideoDuration(localVideoPath);
-    if (!durationInSeconds || durationInSeconds <= 0) {
-      throw new Error("No se pudo obtener una duración válida para el video.");
-    }
-
-    console.log(`🔄 Actualizando duración en la tabla 'clases'...`);
-    const { error: updateError } = await supabaseClient
+    await supabaseClient
       .from("clases")
       .update({ duracion_segundos: durationInSeconds })
       .eq("id", claseId);
-
-    if (updateError) {
-      // Lanzamos un error si no podemos guardar la duración, ya que es crucial.
-      throw new Error(
-        `Error al actualizar la duración: ${updateError.message}`
-      );
-    }
     console.log(`✅ Duración guardada en la base de datos.`);
 
-    // PASO 2: Dividir el video en trozos de audio
+    // 6. DIVIDIR EN TROZOS DE AUDIO
     const audioChunksPaths = await splitVideoIntoAudioChunks(
       localVideoPath,
       tempDir
     );
-    if (audioChunksPaths.length === 0) {
+    if (audioChunksPaths.length === 0)
       throw new Error("ffmpeg no generó ningún trozo de audio.");
-    }
 
-    // PASO 3: Transcribir cada trozo y unir los textos
+    // 7. TRANSCRIBIR CON WHISPER
     let fullTranscription = "";
     console.log(
       `🗣️ Transcribiendo ${audioChunksPaths.length} trozos con Whisper...`
     );
     for (const chunkPath of audioChunksPaths) {
-      // ... (código de transcripción sin cambios)
       const transcription = await openAI.audio.transcriptions.create({
         file: fs.createReadStream(chunkPath),
         model: "whisper-1",
@@ -138,14 +144,8 @@ export default async function handler(req, res) {
       fullTranscription += transcription.text + " ";
     }
     console.log(`✅ Transcripción completa generada.`);
-    console.log(
-      `📝 Texto (primeros 100 caracteres): "${fullTranscription.substring(
-        0,
-        100
-      )}..."`
-    );
 
-    // PASO 4: Dividir texto y generar embeddings
+    // 8. GENERAR Y GUARDAR EMBEDDINGS
     const textChunks = fullTranscription
       .split(". ")
       .filter(Boolean)
@@ -154,7 +154,6 @@ export default async function handler(req, res) {
       `✂️  Texto dividido en ${textChunks.length} fragmentos para embeddings.`
     );
     for (const chunk of textChunks) {
-      // ... (código de embeddings sin cambios)
       const embeddingResponse = await openAI.embeddings.create({
         model: "text-embedding-3-small",
         input: chunk,
@@ -167,6 +166,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // 9. ÉXITO
     console.log(
       `🎉 [Clase ID: ${claseId}] Proceso completado. ${textChunks.length} embeddings guardados.`
     );
@@ -178,13 +178,12 @@ export default async function handler(req, res) {
       });
   } catch (error) {
     console.error(
-      `\n--- ❌ ERROR FATAL en la API para la clase ID ${claseId} ---`
+      `\n--- ❌ ERROR FATAL en la API para la clase ID ${claseId} ---\n`,
+      error
     );
-    console.error("Mensaje de Error:", error.message);
-    console.error("Stack Trace:", error.stack);
     res.status(500).json({ error: error.message });
   } finally {
-    // PASO 5: Limpieza
+    // 10. LIMPIEZA
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
       console.log(`🧹 Directorio temporal ${tempDir} eliminado.`);
@@ -192,10 +191,11 @@ export default async function handler(req, res) {
   }
 }
 
+// Configuración de la API para aceptar archivos grandes
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "50mb",
+      sizeLimit: "50mb", // Aunque ya no recibe el archivo, es buena práctica mantenerlo si hay otros endpoints.
     },
   },
 };

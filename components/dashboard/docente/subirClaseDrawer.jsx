@@ -1,9 +1,6 @@
-// src/components/dashboard/docente/SubirClaseDrawer.jsx
-
 import { useState } from "react";
-import { useSupabaseClient, useUser } from "@supabase/auth-helpers-react";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { IoClose } from "react-icons/io5";
-
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Toolbar from "@components/dashboard/alumno/editor/toolbar";
@@ -14,7 +11,6 @@ export default function SubirClaseDrawer({
   rutasDisponibles,
   onClaseCreada,
 }) {
-  // --- ESTADOS ---
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [rutaId, setRutaId] = useState("");
@@ -23,13 +19,7 @@ export default function SubirClaseDrawer({
   const [feedback, setFeedback] = useState({ type: "", message: "" });
 
   const supabase = useSupabaseClient();
-  const user = useUser();
 
-  // --- CONFIGURACIÓN DE TIPTAP (CORREGIDA Y SIMPLIFICADA) ---
-  // Todas las clases de estilo se centralizan aquí.
-  // 'prose' se encarga de la tipografía (h1, p, etc.).
-  // 'max-w-none' permite que el editor ocupe todo el ancho.
-  // Las demás son clases de utilidad para el tamaño, foco y padding.
   const editor = useEditor({
     extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } })],
     content:
@@ -41,8 +31,6 @@ export default function SubirClaseDrawer({
       },
     },
   });
-
-  // La constante tiptapStyles y la etiqueta <style> se han eliminado.
 
   const handleFileChange = (e) => {
     if (e.target.files?.length > 0) {
@@ -59,100 +47,68 @@ export default function SubirClaseDrawer({
       });
       return;
     }
+
     setIsUploading(true);
     setFeedback({ type: "info", message: "Iniciando proceso..." });
-
-    if (!user) {
-      setIsUploading(false);
-      setFeedback({
-        type: "error",
-        message: "Sesión expirada. Por favor, inicia sesión de nuevo.",
-      });
-      return;
-    }
-
     let nuevaClaseId = null;
-    let videoFilePath = null;
-    const bucketId = "videos-clases";
 
     try {
-      // PASO 1: CREAR REGISTRO DE CLASE Y RECURSOS
-      setFeedback({ type: "info", message: "Creando registro de la clase..." });
-      const { data: claseCreada, error: insertError } = await supabase
-        .from("clases")
-        .insert({ titulo, descripcion, ruta_id: rutaId })
-        .select("id")
-        .single();
-      if (insertError) throw insertError;
-      nuevaClaseId = claseCreada.id;
+      // 1. Pedir a nuestra API que cree la clase en Supabase y nos dé un enlace de subida de Mux.
+      setFeedback({
+        type: "info",
+        message: "Creando registro y solicitando enlace a Mux...",
+      });
+      const uploadRequestResponse = await fetch("/api/clases/upload-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo, descripcion, rutaId }),
+      });
+      if (!uploadRequestResponse.ok)
+        throw new Error(
+          (await uploadRequestResponse.json()).message ||
+            "Error al solicitar subida."
+        );
+      const { uploadUrl, claseId } = await uploadRequestResponse.json();
+      nuevaClaseId = claseId;
 
+      // 2. Guardar los recursos del editor de texto
       const recursosHtml = editor.getHTML();
-      if (recursosHtml && recursosHtml !== "<p></p>") {
+      if (recursosHtml && recursosHtml.trim() !== "<p></p>") {
         await supabase
           .from("recursos")
           .insert({ clase_id: nuevaClaseId, contenido: recursosHtml });
       }
 
-      // PASO 2: SUBIR EL VIDEO A STORAGE
-      const fileExt = videoFile.name.split(".").pop();
-      const fileName = `video.${fileExt}`;
-      videoFilePath = `${nuevaClaseId}/${fileName}`;
-
-      setFeedback({ type: "info", message: "Subiendo video..." });
-      const { error: uploadError } = await supabase.storage
-        .from(bucketId)
-        .upload(videoFilePath, videoFile);
-      if (uploadError) throw uploadError;
-
-      // PASO 3: ACTUALIZAR CLASE CON LA URL DEL VIDEO
-      setFeedback({ type: "info", message: "Guardando URL del video..." });
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(bucketId).getPublicUrl(videoFilePath);
-      const { data: claseActualizada, error: updateError } = await supabase
-        .from("clases")
-        .update({ video_url: publicUrl })
-        .eq("id", nuevaClaseId)
-        .select("*, rutas(nombre)")
-        .single();
-      if (updateError) throw updateError;
-
-      // PASO 4: LLAMAR A LA API DE PROCESAMIENTO
+      // 3. Subir el archivo de video directamente al enlace seguro de Mux
       setFeedback({
         type: "info",
-        message: "Video subido. Iniciando transcripción en segundo plano...",
+        message: "Subiendo video a Mux (esto puede tardar)...",
       });
-      const response = await fetch("/api/clases/procesar-clase", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          claseId: nuevaClaseId,
-          filePath: videoFilePath,
-          bucketId: bucketId,
-        }),
+      const uploadToMuxResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: videoFile,
+        headers: { "Content-Type": videoFile.type },
       });
+      if (!uploadToMuxResponse.ok)
+        throw new Error("La subida del video a Mux falló.");
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `El procesamiento en segundo plano falló: ${
-            errorData.error || response.statusText
-          }`
-        );
-      }
-
-      // PASO 5: ÉXITO TOTAL
+      // 4. ÉXITO del lado del cliente. El backend se encarga del resto.
       setIsUploading(false);
       setFeedback({
         type: "success",
-        message:
-          "¡Clase subida! La transcripción y los embeddings se están generando.",
+        message: "¡Video subido! Se está procesando en segundo plano.",
       });
-      onClaseCreada(claseActualizada);
 
-      // Limpieza del formulario
+      const { data: claseActualizada } = await supabase
+        .from("clases")
+        .select("*, rutas(nombre)")
+        .eq("id", nuevaClaseId)
+        .single();
+      if (claseActualizada) {
+        onClaseCreada(claseActualizada);
+      }
+
+      // 5. Limpieza del formulario y cierre
       setTitulo("");
       setDescripcion("");
       setRutaId("");
@@ -166,27 +122,19 @@ export default function SubirClaseDrawer({
       }, 3000);
     } catch (error) {
       setIsUploading(false);
-      setFeedback({ type: "error", message: "Error: " + error.message });
-
+      setFeedback({ type: "error", message: `Error: ${error.message}` });
+      // Si el proceso falla después de crear la clase, la eliminamos para no dejar basura.
       if (nuevaClaseId) {
-        if (videoFilePath) {
-          await supabase.storage.from(bucketId).remove([videoFilePath]);
-        }
         await supabase.from("clases").delete().eq("id", nuevaClaseId);
-        console.log(
-          `Proceso de subida fallido. Clase ID ${nuevaClaseId} y sus archivos asociados han sido eliminados.`
-        );
       }
     }
   };
 
-  // --- RENDERIZADO DEL JSX ---
   return (
     <div
-      className={`fixed top-5 right-0 h-full w-full max-w-md bg-white 
-        border border-white shadow-lg z-50 rounded-2xl transform transition-transform duration-300 ease-in-out ${
-          visible ? "translate-x-0" : "translate-x-full"
-        }`}
+      className={`fixed top-5 right-0 h-full w-full max-w-md bg-white border border-white shadow-lg z-50 rounded-2xl transform transition-transform duration-300 ease-in-out ${
+        visible ? "translate-x-0" : "translate-x-full"
+      }`}
     >
       <div className="flex justify-between items-center p-4 border-b border-gray-300">
         <h2 className="text-xl font-bold text-gray-800">Subir nueva clase</h2>
@@ -203,6 +151,7 @@ export default function SubirClaseDrawer({
         onSubmit={handleSubmit}
         className="p-4 space-y-6 h-full overflow-y-auto pb-24"
       >
+        {/* Título */}
         <div>
           <label htmlFor="titulo" className="block font-medium text-gray-700">
             Título de la clase
@@ -216,6 +165,8 @@ export default function SubirClaseDrawer({
             required
           />
         </div>
+
+        {/* Descripción */}
         <div>
           <label
             htmlFor="descripcion"
@@ -231,6 +182,8 @@ export default function SubirClaseDrawer({
             onChange={(e) => setDescripcion(e.target.value)}
           ></textarea>
         </div>
+
+        {/* Ruta Asignada */}
         <div>
           <label htmlFor="ruta" className="block font-medium text-gray-700">
             Ruta asignada
@@ -252,17 +205,19 @@ export default function SubirClaseDrawer({
             ))}
           </select>
         </div>
+
+        {/* Editor de Recursos */}
         <div>
           <label className="block font-medium text-gray-700 mb-1">
             Recursos de la clase
           </label>
-          {/* --- JSX DEL EDITOR (CORREGIDO Y SIMPLIFICADO) --- */}
           <div className="border border-gray-500 rounded-lg">
             {editor && <Toolbar editor={editor} />}
-            {/* EditorContent ahora renderiza el editor con las clases correctas sin necesidad de un div extra */}
             <EditorContent editor={editor} />
           </div>
         </div>
+
+        {/* Selector de Video */}
         <div>
           <label
             htmlFor="videoFile"
@@ -279,6 +234,8 @@ export default function SubirClaseDrawer({
             required
           />
         </div>
+
+        {/* Mensajes de Feedback */}
         {feedback.message && (
           <div
             className={`p-3 rounded-md text-sm text-center ${
@@ -290,6 +247,8 @@ export default function SubirClaseDrawer({
             {feedback.message}
           </div>
         )}
+
+        {/* Botón de Envío */}
         <div className="pt-2">
           <button
             type="submit"
