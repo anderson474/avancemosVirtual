@@ -69,6 +69,7 @@ export default async function handler(req, res) {
       new_asset_settings: {
         playback_policy: ["public"],
         passthrough: claseId.toString(),
+        master_access: "temporary",
       },
     });
     if (!directUpload || !directUpload.url) {
@@ -81,10 +82,8 @@ export default async function handler(req, res) {
       .json({ uploadUrl: directUpload.url, claseId: claseId });
   } catch (error) {
     console.error("[/api/clases/upload-request ERROR]", error.message);
-    return res
-      .status(500)
-      .json({
-        message: error.message || "Ocurrió un error interno del servidor.",
-      });
+    return res.status(500).json({
+      message: error.message || "Ocurrió un error interno del servidor.",
+    });
   }
 }

@@ -12,10 +12,80 @@ const supabaseClient = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const { Video } = new Mux(
-  process.env.MUX_TOKEN_ID,
-  process.env.MUX_TOKEN_SECRET
-);
+const mux = new Mux(); // La librería usa las variables de entorno MUX_TOKEN_ID y MUX_TOKEN_SECRET automáticamente
+
+// --- FUNCIÓN AUXILIAR PARA DESCARGAR CON REINTENTOS ---
+const fetchWithRetry = async (url, retries = 5, delay = 3000) => {
+  for (let i = 0; i < retries; i++) {
+    console.log(
+      `  - Intento de descarga ${i + 1}/${retries} desde ${url.substring(
+        0,
+        50
+      )}...`
+    );
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        console.log("  - ✅ Descarga exitosa (Status 200 OK).");
+        return response;
+      }
+      // Si el error es 503 (Servicio No Disponible), esperamos y reintentamos.
+      if (response.status === 503) {
+        console.warn(
+          `  - Aviso: Recibido Status 503 (Servicio No Disponible). Reintentando en ${
+            delay / 1000
+          }s...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue; // Pasa a la siguiente iteración del bucle
+      }
+      // Para cualquier otro error (403, 404, etc.), fallamos inmediatamente.
+      throw new Error(
+        `Fallo de descarga no recuperable. Status: ${response.status}`
+      );
+    } catch (error) {
+      // Captura errores de red (ej. DNS, conexión)
+      console.warn(
+        `  - Aviso: Error de red en el intento ${i + 1}.`,
+        error.message
+      );
+      if (i === retries - 1) throw error; // Si es el último intento, lanzamos el error
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error(
+    `Fallo al descargar el archivo después de ${retries} intentos.`
+  );
+};
+
+// --- FUNCIÓN AUXILIAR PARA ESPERAR EL MASTER DEL VIDEO ---
+const waitForMasterAccess = async (
+  muxAssetId,
+  maxRetries = 12,
+  delay = 10000
+) => {
+  // 12 reintentos de 10s = 2 min de espera max.
+  for (let i = 0; i < maxRetries; i++) {
+    console.log(
+      `  - Intento ${
+        i + 1
+      }/${maxRetries}: Verificando estado del master para el asset ${muxAssetId}...`
+    );
+
+    const asset = await mux.video.assets.retrieve(muxAssetId);
+
+    if (asset?.master?.status === "ready" && asset.master.url) {
+      console.log("  - ✅ Master está listo y la URL está disponible.");
+      return asset.master.url;
+    }
+    if (asset?.master?.status === "errored") {
+      throw new Error("Mux reportó un error al preparar el archivo master.");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error("El archivo master no estuvo disponible a tiempo (timeout).");
+};
 
 // --- FUNCIÓN AUXILIAR PARA OBTENER DURACIÓN ---
 const getVideoDuration = (videoPath) => {
@@ -43,12 +113,12 @@ const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
         "-f",
         "segment",
         "-segment_time",
-        "600", // 10 minutos por trozo
-        "-vn", // Sin video
+        "600",
+        "-vn",
         "-acodec",
         "libmp3lame",
         "-q:a",
-        "2", // Buena calidad
+        "2",
       ])
       .output(chunkFilePattern)
       .on("end", () => {
@@ -68,24 +138,19 @@ const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
 
 // --- HANDLER PRINCIPAL DE LA API ---
 export default async function handler(req, res) {
-  // 1. VERIFICAR MÉTODO Y AUTORIZACIÓN
-  if (req.method !== "POST") {
+  if (req.method !== "POST")
     return res.status(405).json({ error: "Method Not Allowed" });
-  }
-  const authToken = req.headers.authorization?.split(" ")[1];
-  if (authToken !== process.env.PROCESSING_API_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
 
-  // 2. OBTENER PARÁMETROS DEL BODY
+  const authToken = req.headers.authorization?.split(" ")[1];
+  if (authToken !== process.env.PROCESSING_API_SECRET)
+    return res.status(401).json({ error: "Unauthorized" });
+
   const { claseId, muxAssetId } = req.body;
-  if (!claseId || !muxAssetId) {
+  if (!claseId || !muxAssetId)
     return res
       .status(400)
       .json({ error: "Faltan parámetros claseId o muxAssetId." });
-  }
 
-  // 3. PREPARAR ENTORNO TEMPORAL
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "video-processing-"));
   const localVideoPath = path.join(tempDir, "source_video.mp4");
 
@@ -94,45 +159,36 @@ export default async function handler(req, res) {
       `[Clase ID: ${claseId}] Iniciando procesamiento para Mux Asset ID: ${muxAssetId}`
     );
 
-    // 4. DESCARGAR VIDEO DESDE MUX
-    console.log(`⬇️ Obteniendo URL de descarga de Mux...`);
-    const playbackIdInfo = await Video.Assets.createPlaybackId(muxAssetId, {
-      policy: "signed",
-    });
-    const downloadUrl = `https://stream.mux.com/${playbackIdInfo.id}/high.mp4`;
-    console.log(`⬇️ Descargando video de: ${downloadUrl}`);
-    const videoResponse = await fetch(downloadUrl);
-    if (!videoResponse.ok)
-      throw new Error(
-        `Failed to download from Mux. Status: ${videoResponse.status}`
-      );
+    if (!mux)
+      throw new Error("El cliente de Mux no se inicializó correctamente.");
+
+    // 1. ESPERAR Y OBTENER LA URL DE DESCARGA
+    const downloadUrl = await waitForMasterAccess(muxAssetId);
+
+    // 2. DESCARGAR EL VIDEO CON LÓGICA DE REINTENTOS
+    const videoResponse = await fetchWithRetry(downloadUrl);
+
     fs.writeFileSync(
       localVideoPath,
       Buffer.from(await videoResponse.arrayBuffer())
     );
-    console.log(`✅ Video descargado en: ${localVideoPath}`);
+    console.log(`✅ Video descargado y guardado localmente.`);
 
-    // 5. OBTENER DURACIÓN Y ACTUALIZAR DB
+    // 3. PROCESAMIENTO CON FFMPEG Y OPENAI
     const durationInSeconds = await getVideoDuration(localVideoPath);
     await supabaseClient
       .from("clases")
       .update({ duracion_segundos: durationInSeconds })
       .eq("id", claseId);
-    console.log(`✅ Duración guardada en la base de datos.`);
+    console.log(`✅ Duración guardada: ${durationInSeconds}s`);
 
-    // 6. DIVIDIR EN TROZOS DE AUDIO
     const audioChunksPaths = await splitVideoIntoAudioChunks(
       localVideoPath,
       tempDir
     );
-    if (audioChunksPaths.length === 0)
-      throw new Error("ffmpeg no generó ningún trozo de audio.");
+    console.log(`✅ Audio dividido en ${audioChunksPaths.length} trozos.`);
 
-    // 7. TRANSCRIBIR CON WHISPER
     let fullTranscription = "";
-    console.log(
-      `🗣️ Transcribiendo ${audioChunksPaths.length} trozos con Whisper...`
-    );
     for (const chunkPath of audioChunksPaths) {
       const transcription = await openAI.audio.transcriptions.create({
         file: fs.createReadStream(chunkPath),
@@ -145,13 +201,12 @@ export default async function handler(req, res) {
     }
     console.log(`✅ Transcripción completa generada.`);
 
-    // 8. GENERAR Y GUARDAR EMBEDDINGS
     const textChunks = fullTranscription
       .split(". ")
       .filter(Boolean)
       .map((s) => s.trim() + ".");
     console.log(
-      `✂️  Texto dividido en ${textChunks.length} fragmentos para embeddings.`
+      `✅ Texto dividido en ${textChunks.length} fragmentos para embeddings.`
     );
     for (const chunk of textChunks) {
       const embeddingResponse = await openAI.embeddings.create({
@@ -165,11 +220,10 @@ export default async function handler(req, res) {
         embedding: embedding.embedding,
       });
     }
+    console.log(`✅ Embeddings guardados.`);
 
-    // 9. ÉXITO
-    console.log(
-      `🎉 [Clase ID: ${claseId}] Proceso completado. ${textChunks.length} embeddings guardados.`
-    );
+    // 4. ÉXITO
+    console.log(`🎉 [Clase ID: ${claseId}] Proceso completado.`);
     res
       .status(200)
       .json({
@@ -183,19 +237,18 @@ export default async function handler(req, res) {
     );
     res.status(500).json({ error: error.message });
   } finally {
-    // 10. LIMPIEZA
+    // 5. LIMPIEZA
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
-      console.log(`🧹 Directorio temporal ${tempDir} eliminado.`);
+      console.log(`🧹 Directorio temporal eliminado para clase ${claseId}.`);
     }
   }
 }
 
-// Configuración de la API para aceptar archivos grandes
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "50mb", // Aunque ya no recibe el archivo, es buena práctica mantenerlo si hay otros endpoints.
+      sizeLimit: "50mb",
     },
   },
 };
