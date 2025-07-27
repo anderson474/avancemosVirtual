@@ -11,7 +11,11 @@ const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openAI = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  maxRetries: 3,
+  timeout: 60 * 1000,
+});
 const mux = new Mux(); // La librería usa las variables de entorno MUX_TOKEN_ID y MUX_TOKEN_SECRET automáticamente
 
 // --- FUNCIÓN AUXILIAR PARA DESCARGAR CON REINTENTOS ---
@@ -113,7 +117,7 @@ const splitVideoIntoAudioChunks = (videoPath, tempDir) => {
         "-f",
         "segment",
         "-segment_time",
-        "600",
+        "180",
         "-vn",
         "-acodec",
         "libmp3lame",
@@ -224,12 +228,10 @@ export default async function handler(req, res) {
 
     // 4. ÉXITO
     console.log(`🎉 [Clase ID: ${claseId}] Proceso completado.`);
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: `Procesados ${textChunks.length} fragmentos.`,
-      });
+    res.status(200).json({
+      success: true,
+      message: `Procesados ${textChunks.length} fragmentos.`,
+    });
   } catch (error) {
     console.error(
       `\n--- ❌ ERROR FATAL en la API para la clase ID ${claseId} ---\n`,

@@ -16,7 +16,6 @@ export default function EliminarRutaDrawer({
   const [rutasConConteo, setRutasConConteo] = useState([]);
   const [isLoadingCounts, setIsLoadingCounts] = useState(true);
 
-  // useEffect no necesita cambios, está correcto.
   useEffect(() => {
     if (!rutas || rutas.length === 0) {
       setRutasConConteo([]);
@@ -64,143 +63,29 @@ export default function EliminarRutaDrawer({
     }
 
     try {
-      console.log(
-        `%c[INICIO] Proceso de eliminación para la ruta ID: ${ruta.id}, Nombre: "${ruta.nombre}"`,
-        "color: blue; font-weight: bold;"
-      );
+      // --- INICIO DE LA LÓGICA MODIFICADA ---
+      // PASO 1: LLAMAR A NUESTRA API SEGURA PARA ELIMINAR LA RUTA
+      const response = await fetch("/api/rutas/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rutaId: ruta.id }),
+      });
 
-      // PASO 1: OBTENER LOS IDs DE LAS CLASES
-      console.log(
-        "[LOG] PASO 1: Obteniendo IDs de las clases asociadas a la ruta..."
-      );
-      const { data: clasesAEliminar, error: fetchError } = await supabase
-        .from("clases")
-        .select("id")
-        .eq("ruta_id", ruta.id);
-
-      if (fetchError) {
-        throw new Error(
-          `Paso 1 fallido: No se pudieron obtener las clases. ${fetchError.message}`
-        );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al eliminar la ruta.");
       }
-      console.log(
-        `[LOG] PASO 1 COMPLETADO: Se encontraron ${clasesAEliminar.length} clases. IDs:`,
-        clasesAEliminar.map((c) => c.id)
-      );
+      // --- FIN DE LA LÓGICA MODIFICADA ---
 
-      // PASO 2: LIMPIAR STORAGE
-      if (clasesAEliminar && clasesAEliminar.length > 0) {
-        const bucketId = "videos-clases";
-        console.log(
-          `%c[LOG] PASO 2: Iniciando limpieza de Storage en el bucket '${bucketId}'...`,
-          "color: purple; font-weight: bold;"
-        );
-
-        const deleteStoragePromises = clasesAEliminar.map(async (clase) => {
-          const folderPath = String(clase.id);
-          console.log(
-            `%c  [Procesando Clase ID: ${clase.id}]`,
-            "color: orange;"
-          );
-          console.log(
-            `    - Intentando listar archivos en la "carpeta": '${folderPath}'`
-          );
-
-          const { data: files, error: listError } = await supabase.storage
-            .from(bucketId)
-            .list(folderPath);
-
-          if (listError) {
-            console.warn(
-              `    - ADVERTENCIA: No se pudo listar la carpeta '${folderPath}'. Error: ${listError.message}. Saltando a la siguiente.`
-            );
-            return; // Continuamos con la siguiente clase.
-          }
-
-          if (files && files.length > 0) {
-            console.log(
-              `    - ARCHIVOS ENCONTRADOS: ${files.length}. Nombres:`,
-              files.map((f) => f.name)
-            );
-
-            const filePathsToRemove = files.map(
-              (file) => `${folderPath}/${file.name}`
-            );
-            console.log(
-              `    - CONSTRUYENDO RUTAS PARA BORRAR:`,
-              filePathsToRemove
-            );
-
-            console.log(`    - Ejecutando comando remove()...`);
-            const { error: removeError } = await supabase.storage
-              .from(bucketId)
-              .remove(filePathsToRemove);
-
-            if (removeError) {
-              console.error(
-                `    - ERROR al eliminar archivos de la carpeta '${folderPath}': ${removeError.message}`
-              );
-              // Podríamos lanzar un error aquí si queremos que el proceso se detenga por completo.
-              // throw new Error(`Fallo al eliminar de storage: ${removeError.message}`);
-            } else {
-              console.log(
-                `    - ÉXITO: Archivos eliminados de la carpeta '${folderPath}'.`
-              );
-            }
-          } else {
-            console.log(
-              `    - INFO: La carpeta '${folderPath}' está vacía o no existe. No hay nada que eliminar.`
-            );
-          }
-        });
-
-        await Promise.all(deleteStoragePromises);
-        console.log(
-          `%c[LOG] PASO 2 COMPLETADO: Limpieza de Storage finalizada.`,
-          "color: purple; font-weight: bold;"
-        );
-      } else {
-        console.log(
-          "[LOG] PASO 2 OMITIDO: No hay clases asociadas, no se necesita limpiar Storage."
-        );
-      }
-
-      // PASO 3: ELIMINAR LA RUTA DE LA BD
-      console.log(
-        `%c[LOG] PASO 3: Eliminando la ruta ID ${ruta.id} de la base de datos (se espera CASCADE)...`,
-        "color: green; font-weight: bold;"
-      );
-      const { error: deleteRutaError } = await supabase
-        .from("rutas")
-        .delete()
-        .eq("id", ruta.id);
-      if (deleteRutaError) {
-        throw new Error(
-          `Paso 3 fallido: Error al eliminar la ruta. ${deleteRutaError.message}`
-        );
-      }
-      console.log(
-        `[LOG] PASO 3 COMPLETADO: Ruta eliminada de la base de datos.`
-      );
-
-      // PASO 4: ÉXITO
+      // PASO 2: ÉXITO
       setFeedback({
         type: "success",
-        message: `¡Ruta "${ruta.nombre}" y todo su contenido eliminados con éxito!`,
+        message: `¡Ruta "${ruta.nombre}" eliminada con éxito!`,
       });
       onRutaEliminada(ruta.id);
       setTimeout(() => setFeedback({ type: "", message: "" }), 4000);
-      console.log(
-        `%c[FIN] Proceso de eliminación finalizado con ÉXITO.`,
-        "color: blue; font-weight: bold;"
-      );
     } catch (error) {
-      console.error(
-        "%c[ERROR FATAL] El proceso de eliminación se detuvo.",
-        "color: red; font-size: 16px; font-weight: bold;"
-      );
-      console.error("Mensaje del Error:", error.message);
-      console.error("Objeto de Error Completo:", error);
+      console.error("Error en el proceso de eliminación de ruta:", error);
       setFeedback({ type: "error", message: `Error: ${error.message}` });
     } finally {
       setDeletingId(null);

@@ -15,7 +15,7 @@ function AlumnoDashboard() {
 
   const router = useRouter();
 
-  const { isLoading: isSessionLoading } = useSessionContext();
+  //const { isLoading: isSessionLoading } = useSessionContext();
   const {
     dashboardData,
     isLoading: isDashboardDataLoading,
@@ -23,9 +23,9 @@ function AlumnoDashboard() {
   } = useAlumnoDashboard();
 
   // Log de estados en cada render
-  console.log("  - Estado de sesión:", { isSessionLoading });
-  console.log("  - Estado de datos:", { isDashboardDataLoading });
-  console.log("  - Datos recibidos:", dashboardData); // Log para ver si los datos llegan
+  //console.log("  - Estado de sesión:", { isSessionLoading });
+  //console.log("  - Estado de datos:", { isDashboardDataLoading });
+  //console.log("  - Datos recibidos:", dashboardData); // Log para ver si los datos llegan
 
   const supabase = useSupabaseClient();
 
@@ -35,14 +35,14 @@ function AlumnoDashboard() {
     router.push("/avancemosDigital");
   };
 
-  const isLoading = isSessionLoading || isDashboardDataLoading;
-  console.log(
-    "  - ¿Está cargando en total? (isSessionLoading || isDashboardDataLoading):",
-    isLoading
-  );
+  const isLoading = isDashboardDataLoading;
+  // console.log(
+  //   "  - ¿Está cargando en total? (isSessionLoading || isDashboardDataLoading):",
+  //   isLoading
+  // );
 
   if (isLoading) {
-    console.log("  ➡️ Mostrando pantalla de CARGA (isLoading es true)");
+    // console.log("  ➡️ Mostrando pantalla de CARGA (isLoading es true)");
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
         <p className="text-gray-600 animate-pulse">Cargando tu dashboard...</p>
@@ -52,9 +52,9 @@ function AlumnoDashboard() {
 
   // Si ya no está cargando, pero no hay datos, algo raro pasó.
   if (!dashboardData) {
-    console.log(
-      "  ➡️ Mostrando pantalla de CARGA (isLoading es false, pero !dashboardData es true)"
-    );
+    // console.log(
+    //   "  ➡️ Mostrando pantalla de CARGA (isLoading es false, pero !dashboardData es true)"
+    // );
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
         <p className="text-gray-600">
@@ -65,7 +65,7 @@ function AlumnoDashboard() {
   }
 
   if (isError) {
-    console.error("  ➡️ Mostrando pantalla de ERROR", isError);
+    //console.error("  ➡️ Mostrando pantalla de ERROR", isError);
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <p className="text-red-600">
@@ -75,7 +75,7 @@ function AlumnoDashboard() {
     );
   }
 
-  console.log("  ✅ Mostrando DASHBOARD COMPLETO");
+  //console.log("  ✅ Mostrando DASHBOARD COMPLETO");
   const { nombreAlumno, avatarUrl, rutasAsignadas } = dashboardData;
 
   return (

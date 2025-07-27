@@ -1,136 +1,175 @@
-// /pages/clases/[rutaId].jsx
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSupabaseClient, useUser } from "@supabase/auth-helpers-react";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 import useSWR from "swr";
 import { ArrowLeftIcon } from "@heroicons/react/24/solid";
-
-import ClaseSidebar from "@components/dashboard/alumno/claseSidebar";
-import VideoPlayer from "@components/dashboard/alumno/videoPlayer";
-import InfoTabs from "@components/dashboard/alumno/infoTabs";
-import ChatIA from "@components/dashboard/alumno/chatIA";
-
+import MuxPlayer from "@mux/mux-player-react";
 import Lottie from "lottie-react";
 import loading from "@public/animation/loading.json";
 
-// --- FUNCIÓN FETCHER PARA SWR (Ligeramente modificada para robustez) ---
+import ClaseSidebar from "@components/dashboard/alumno/claseSidebar";
+import InfoTabs from "@components/dashboard/alumno/infoTabs";
+import ChatIA from "@components/dashboard/alumno/chatIA";
+
+// --- FUNCIÓN FETCHER CON LOGS ---
 const fetcher = async ([supabase, user, rutaId]) => {
-  const [vistasResult, rutaResult, progresoResult] = await Promise.all([
-    supabase.from("clases_vistas").select("clase_id").eq("alumno_id", user.id),
+  console.groupCollapsed(" SWR Fetcher Executing ");
+  console.log(`Fetching data for rutaId: ${rutaId} and user: ${user.id}`);
+  try {
+    const [vistasResult, rutaResult, progresoResult] = await Promise.all([
+      supabase
+        .from("clases_vistas")
+        .select("clase_id, ultimo_tiempo_visto")
+        .eq("alumno_id", user.id),
+      supabase
+        .from("rutas")
+        .select("nombre, clases(id, titulo, descripcion, mux_playback_id)")
+        .eq("id", rutaId)
+        .maybeSingle(),
+      supabase
+        .from("rutas_alumnos")
+        .select("ultima_clase_vista_id")
+        .eq("alumno_id", user.id)
+        .eq("ruta_id", rutaId)
+        .maybeSingle(),
+    ]);
 
-    // CAMBIO: Usamos maybeSingle() para evitar que la app crashee si la ruta no existe.
-    supabase
-      .from("rutas")
-      .select("nombre, clases(id, titulo, descripcion, video_url)")
-      .eq("id", rutaId)
-      .maybeSingle(),
+    console.log("  - Supabase responses received:", {
+      vistasResult,
+      rutaResult,
+      progresoResult,
+    });
 
-    supabase
-      .from("rutas_alumnos")
-      .select("ultima_clase_vista_id")
-      .eq("alumno_id", user.id)
-      .eq("ruta_id", rutaId)
-      .maybeSingle(),
-  ]);
+    const { data: rutaData, error: rutaError } = rutaResult;
+    if (rutaError || !rutaData) {
+      console.error("  - ERROR: Ruta not found or access denied.", rutaError);
+      throw new Error(
+        "No se pudo cargar el contenido. Es posible que no tengas acceso o la ruta no exista."
+      );
+    }
 
-  const { data: vistasData } = vistasResult;
-  const { data: rutaData, error: rutaError } = rutaResult;
-  const { data: progresoData } = progresoResult;
-
-  // CAMBIO: Ahora también comprobamos si la ruta existe.
-  if (rutaError || !rutaData) {
-    throw new Error(
-      "No se pudo cargar el contenido. Es posible que no tengas acceso o la ruta no exista."
+    const progresoMap = new Map(
+      vistasResult.data?.map((v) => [v.clase_id, v.ultimo_tiempo_visto])
     );
+
+    const finalData = {
+      rutaInfo: { titulo: rutaData.nombre },
+      clases: rutaData.clases || [],
+      progresoMap,
+      ultimaClaseId: progresoResult.data?.ultima_clase_vista_id,
+    };
+
+    console.log("  - Fetcher returning data:", finalData);
+    console.groupEnd();
+    return finalData;
+  } catch (error) {
+    console.error("  - FATAL ERROR inside fetcher:", error);
+    console.groupEnd();
+    throw error;
   }
-
-  const clasesVistasIds = vistasData ? vistasData.map((v) => v.clase_id) : [];
-  const ultimaClaseId = progresoData
-    ? progresoData.ultima_clase_vista_id
-    : null;
-
-  // Devolvemos el nombre de la ruta bajo `rutaData.nombre` para que coincida con la consulta
-  return {
-    rutaInfo: { titulo: rutaData.nombre },
-    clases: rutaData.clases || [],
-    clasesVistasIds,
-    ultimaClaseId,
-  };
 };
 
-// --- COMPONENTE PRINCIPAL DE LA PÁGINA ---
+// --- COMPONENTE PRINCIPAL CON LOGS ---
 export default function InterfazClasePage() {
+  console.group(` Render Cycle - Timestamp: ${Date.now()} `);
+
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
-
-  // CAMBIO: Leemos el `rutaId` y el nuevo parámetro `clase` de la URL.
   const { rutaId, clase: claseIdFromQuery } = router.query;
-
-  const key = rutaId && user && supabase ? [supabase, user, rutaId] : null;
-  const { data, error, isLoading } = useSWR(key, fetcher);
-
   const [claseActiva, setClaseActiva] = useState(null);
 
-  // ======================================================================
-  // ESTE EFECTO AHORA LEE EL PARÁMETRO DE LA URL
-  // ======================================================================
+  console.log("1. Initial state:", {
+    isRouterReady: router.isReady,
+    rutaId: rutaId,
+    userExists: !!user,
+    claseActivaId: claseActiva?.id,
+  });
+
+  const key = rutaId && user ? [supabase, user, rutaId] : null;
+  console.log("2. SWR Key:", key ? `[${key[2]}]` : "null (SWR will not fetch)");
+
+  const { data, error, isLoading } = useSWR(key, fetcher);
+  console.log("3. SWR State:", {
+    isLoading,
+    hasData: !!data,
+    hasError: !!error,
+  });
+
+  // Efecto para determinar qué clase mostrar
   useEffect(() => {
-    // Salimos si los datos no están listos o si el router aún no tiene los query params.
-    if (!data || !router.isReady) return;
+    console.groupCollapsed(" useEffect - Selecting Active Class ");
+    console.log("  - Dependencies:", {
+      hasData: !!data,
+      isRouterReady: router.isReady,
+      claseIdFromQuery,
+    });
+
+    if (!data || !router.isReady) {
+      console.log("  - Exit Condition: Data or router not ready. Aborting.");
+      console.groupEnd();
+      return;
+    }
 
     const clasesDisponibles = data.clases;
-    if (clasesDisponibles.length === 0) return;
+    console.log(`  - Found ${clasesDisponibles.length} available classes.`);
+    if (clasesDisponibles.length === 0) {
+      console.log("  - No classes available. Aborting.");
+      setClaseActiva(null); // Asegurarse de limpiar la clase activa si no hay clases
+      console.groupEnd();
+      return;
+    }
 
     let claseASeleccionar = null;
-
-    // Prioridad 1: Si la URL especifica una clase (`?clase=ID`), la buscamos.
+    console.log("  - Priority 1: Checking for class in URL query...");
     if (claseIdFromQuery) {
       claseASeleccionar = clasesDisponibles.find(
-        (clase) => clase.id.toString() === claseIdFromQuery
+        (c) => c.id.toString() === claseIdFromQuery
+      );
+      console.log(
+        claseASeleccionar
+          ? `    - Found class from query: ${claseASeleccionar.titulo}`
+          : "    - No match found for query."
       );
     }
 
-    // Prioridad 2: Si no hay clase en la URL, buscamos la última vista en la ruta.
-    if (!claseASeleccionar && data.ultimaClaseId) {
-      claseASeleccionar = clasesDisponibles.find(
-        (clase) => clase.id === data.ultimaClaseId
-      );
-    }
-
-    // Prioridad 3: Como último recurso, usamos la primera clase de la lista.
     if (!claseASeleccionar) {
-      claseASeleccionar = clasesDisponibles[0];
+      console.log("  - Priority 2: Checking for last viewed class...");
+      if (data.ultimaClaseId) {
+        claseASeleccionar = clasesDisponibles.find(
+          (c) => c.id === data.ultimaClaseId
+        );
+        console.log(
+          claseASeleccionar
+            ? `    - Found last viewed class: ${claseASeleccionar.titulo}`
+            : "    - No match found for last viewed."
+        );
+      } else {
+        console.log("    - No last viewed class ID available.");
+      }
     }
 
-    // Si la clase a seleccionar es la misma que ya está activa, no hacemos nada.
-    if (claseActiva?.id === claseASeleccionar?.id) return;
+    if (!claseASeleccionar) {
+      console.log("  - Priority 3: Defaulting to first class in list.");
+      claseASeleccionar = clasesDisponibles[0];
+      console.log(`    - Selected first class: ${claseASeleccionar.titulo}`);
+    }
 
+    console.log(
+      "  - Final Decision: Setting active class to:",
+      claseASeleccionar?.titulo || "None"
+    );
     setClaseActiva(claseASeleccionar);
-  }, [
-    data,
-    router.isReady,
-    claseIdFromQuery,
-    claseActiva,
-    data?.ultimaClaseId,
-  ]);
+    console.groupEnd();
+  }, [data, router.isReady, claseIdFromQuery]);
 
   // --- MANEJADORES DE EVENTOS ---
   const handleSelectClase = async (clase) => {
-    // CAMBIO: Actualizamos la URL para que refleje la clase seleccionada.
-    // Esto es crucial para que los refrescos de página y el historial del navegador funcionen.
-    // `shallow: true` evita que la página se recargue por completo.
     router.push(`/clases/${rutaId}?clase=${clase.id}`, undefined, {
       shallow: true,
     });
-
-    // El useEffect se encargará de actualizar el estado, pero lo hacemos aquí también
-    // para una respuesta visual instantánea.
     setClaseActiva(clase);
-
-    // Esta parte de guardar el progreso no cambia.
     if (user && rutaId && clase) {
       await supabase
         .from("rutas_alumnos")
@@ -141,9 +180,9 @@ export default function InterfazClasePage() {
   };
 
   const handleNextClase = () => {
-    if (!data || !data.clases) return;
+    if (!data || !claseActiva) return;
     const currentIndex = data.clases.findIndex((c) => c.id === claseActiva.id);
-    if (currentIndex !== -1 && currentIndex < data.clases.length - 1) {
+    if (currentIndex < data.clases.length - 1) {
       const siguienteClase = data.clases[currentIndex + 1];
       handleSelectClase(siguienteClase);
     } else {
@@ -152,8 +191,41 @@ export default function InterfazClasePage() {
     }
   };
 
-  // --- RENDERIZADO CONDICIONAL: CARGA Y ERROR (SIN CAMBIOS) ---
-  if (isLoading || !router.isReady) {
+  const guardarProgreso = async (event) => {
+    const currentTime = event.target.currentTime;
+    if (!claseActiva || !user || !currentTime || event.target.ended) return;
+    await supabase.from("clases_vistas").upsert(
+      {
+        clase_id: claseActiva.id,
+        alumno_id: user.id,
+        ultimo_tiempo_visto: currentTime,
+      },
+      { onConflict: "alumno_id, clase_id" }
+    );
+  };
+
+  const marcarComoVista = async () => {
+    if (!claseActiva || !user) return;
+    await supabase.from("clases_vistas").upsert(
+      {
+        clase_id: claseActiva.id,
+        alumno_id: user.id,
+        ultimo_tiempo_visto: 0,
+      },
+      { onConflict: "alumno_id, clase_id" }
+    );
+    handleNextClase();
+  };
+
+  // --- RENDERIZADO CONDICIONAL ---
+  console.log("4. Checking render condition:", {
+    isLoading,
+    isRouterReady: router.isReady,
+    hasData: !!data,
+  });
+  if (isLoading || !router.isReady || !data) {
+    console.log("  - RESULT: Rendering Loading Component.");
+    console.groupEnd();
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-50">
         <div className="w-64 h-64 mt-4">
@@ -167,6 +239,9 @@ export default function InterfazClasePage() {
   }
 
   if (error) {
+    console.error("  - ERROR STATE DETECTED:", error);
+    console.log("  - RESULT: Rendering Error Component.");
+    console.groupEnd();
     return (
       <div className="flex flex-col justify-center items-center h-screen bg-gray-100 text-center p-4">
         <p className="text-red-500 font-semibold text-lg">{error.message}</p>
@@ -180,15 +255,19 @@ export default function InterfazClasePage() {
     );
   }
 
-  // --- RENDERIZADO PRINCIPAL (SIN CAMBIOS) ---
+  console.log(
+    "5. RESULT: Rendering Main Component with active class:",
+    claseActiva?.titulo || "None yet"
+  );
+  console.groupEnd();
   return (
     <div className="flex h-screen bg-gray-100">
       <ClaseSidebar
-        rutaTitulo={data?.rutaInfo?.titulo}
-        clases={data?.clases || []}
+        rutaTitulo={data?.rutaInfo?.titulo || "Cargando ruta..."}
+        clases={data.clases}
         claseActivaId={claseActiva?.id}
         onSelectClase={handleSelectClase}
-        clasesVistasIds={data?.clasesVistasIds || []}
+        progresoMap={data.progresoMap}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex-shrink-0 flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
@@ -199,12 +278,9 @@ export default function InterfazClasePage() {
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Volver al Panel
           </button>
-          {claseActiva && (
-            <h1 className="text-xl font-bold text-gray-800 truncate ml-4 hidden md:block">
-              {claseActiva.titulo}
-            </h1>
-          )}
-          <div className="w-40 hidden md:block"></div>
+          <h1 className="text-xl font-bold text-gray-800 truncate ml-4 hidden md:block">
+            {claseActiva?.titulo || "Selecciona una clase"}
+          </h1>
           <div className="flex justify-end">
             <button
               onClick={handleNextClase}
@@ -219,14 +295,26 @@ export default function InterfazClasePage() {
           {claseActiva ? (
             <div className="max-w-5xl mx-auto">
               <div className="w-full aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-xl mb-8">
-                {/* CAMBIO: Añadimos la key para forzar el re-montaje del video player */}
-                <VideoPlayer
-                  key={claseActiva.id}
-                  videoUrl={claseActiva.video_url}
-                  claseId={claseActiva.id}
-                  userId={user.id}
-                  onVideoEnded={handleNextClase}
-                />
+                {claseActiva.mux_playback_id ? (
+                  <MuxPlayer
+                    key={claseActiva.id}
+                    playbackId={claseActiva.mux_playback_id}
+                    autoPlay
+                    startTime={data.progresoMap.get(claseActiva.id) || 0}
+                    onTimeUpdate={guardarProgreso}
+                    onEnded={marcarComoVista}
+                    metadata={{
+                      video_id: claseActiva.id,
+                      video_title: claseActiva.titulo,
+                      user_id: user?.id,
+                    }}
+                    accentColor="#2563eb"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white bg-gray-800">
+                    <p>El video no está disponible o se está procesando.</p>
+                  </div>
+                )}
               </div>
               <div className="mt-8">
                 <ChatIA claseId={claseActiva.id} />
@@ -240,7 +328,6 @@ export default function InterfazClasePage() {
               </h2>
               <p className="text-gray-500 mt-2 max-w-md">
                 Esta ruta de aprendizaje aún no tiene clases disponibles.
-                ¡Vuelve pronto!
               </p>
             </div>
           )}
@@ -250,13 +337,12 @@ export default function InterfazClasePage() {
   );
 }
 
-// --- PROTECCIÓN DE LA RUTA EN EL SERVIDOR (SIN CAMBIOS) ---
+// --- PROTECCIÓN DE LA RUTA EN EL SERVIDOR ---
 export const getServerSideProps = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
   if (!session) {
     return {
       redirect: {
@@ -265,10 +351,9 @@ export const getServerSideProps = async (ctx) => {
       },
     };
   }
-
   return {
     props: {
-      initialSession: session,
+      initialSession: session, // Pasamos la sesión para que el cliente la tenga de inmediato
     },
   };
 };

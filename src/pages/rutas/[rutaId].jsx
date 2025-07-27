@@ -16,7 +16,7 @@ const fetcher = async ([supabase, user, rutaId]) => {
     supabase
       .from("rutas")
       .select(
-        `id, nombre, descripcion, clases(id, titulo, video_url, duracion_segundos)`
+        `id, nombre, descripcion, clases(id, titulo, mux_playback_id, duracion_segundos)`
       )
       .eq("id", rutaId)
       .maybeSingle(),
@@ -97,10 +97,7 @@ export default function RutaDetallePage() {
   if (!data || !data.ruta) {
     // Puedes mostrar un mensaje de "No encontrado" o simplemente no renderizar nada.
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
-        <h2 className="text-2xl text-yellow-400 font-bold">
-          Ruta no encontrada
-        </h2>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-900 text-center p-4">
         <p className="mt-2 text-gray-300">Cargando...</p>
         <button
           onClick={() => router.push("/Dashboard/alumno")}
