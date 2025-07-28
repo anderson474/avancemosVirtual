@@ -300,7 +300,7 @@ export default function InterfazClasePage() {
                     key={claseActiva.id}
                     playbackId={claseActiva.mux_playback_id}
                     autoPlay
-                    startTime={data.progresoMap.get(claseActiva.id) || 0}
+                    startTime={data?.progresoMap?.get(claseActiva.id) || 0}
                     onTimeUpdate={guardarProgreso}
                     onEnded={marcarComoVista}
                     metadata={{
