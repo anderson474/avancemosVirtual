@@ -5,7 +5,7 @@ import { PhotoIcon } from "@heroicons/react/24/solid";
 const ProgressBar = ({ progress }) => (
   <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 overflow-hidden">
     <div
-      className="h-full bg-green-500 transition-all duration-500"
+      className="h-full bg-verde transition-all duration-500"
       style={{ width: `${progress}%` }}
     />
   </div>
@@ -47,7 +47,7 @@ export default function ClaseListItem({
   return (
     // Añadimos los eventos onMouseEnter y onMouseLeave al componente Link.
     <Link
-      href={`/clases/${rutaId}?clase=${clase.id}`}
+      href={`/clases/${rutaId}?clase=${clase.id}&start=${tiempoVisto}`}
       className="relative flex items-center p-4 rounded-xl transition-all duration-300 backdrop-blur-sm border border-white shadow-xl/30 hover:bg-white/20 overflow-hidden"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}

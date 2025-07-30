@@ -23,7 +23,6 @@ export default function ClaseSidebar({
           // Una clase está "vista" o "completada" si existe en nuestro mapa de progreso
           // y su tiempo de visionado guardado es 0 (lo que indica que se terminó).
           const esVista = progresoMap?.get(clase.id) === 0;
-          // --- FIN DE LA LÓGICA CORREGIDA ---
 
           return (
             <li key={clase.id}>

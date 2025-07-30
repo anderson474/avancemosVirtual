@@ -77,7 +77,11 @@ export default function InterfazClasePage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
-  const { rutaId, clase: claseIdFromQuery } = router.query;
+  const {
+    rutaId,
+    clase: claseIdFromQuery,
+    start: startTimeFromQuery,
+  } = router.query;
   const [claseActiva, setClaseActiva] = useState(null);
 
   console.log("1. Initial state:", {
@@ -272,7 +276,7 @@ export default function InterfazClasePage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex-shrink-0 flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
           <button
-            onClick={() => router.push("/Dashboard/alumno")}
+            onClick={() => router.push(`/rutas/${rutaId}`)}
             className="flex items-center px-4 py-2 bg-gray-100 cursor-pointer rounded-lg hover:bg-gray-200 transition text-gray-800 font-medium"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
@@ -300,7 +304,11 @@ export default function InterfazClasePage() {
                     key={claseActiva.id}
                     playbackId={claseActiva.mux_playback_id}
                     autoPlay
-                    startTime={data?.progresoMap?.get(claseActiva.id) || 0}
+                    startTime={
+                      Number(startTimeFromQuery) ||
+                      data?.progresoMap?.get(claseActiva.id) ||
+                      0
+                    }
                     onTimeUpdate={guardarProgreso}
                     onEnded={marcarComoVista}
                     metadata={{
@@ -308,7 +316,7 @@ export default function InterfazClasePage() {
                       video_title: claseActiva.titulo,
                       user_id: user?.id,
                     }}
-                    accentColor="#2563eb"
+                    accentColor="#96b422"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white bg-gray-800">
